@@ -3,78 +3,149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiplayer Oyun Portalı</title>
+    <title>Web Oyuncum</title>
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
         body { background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 400px; text-align: center; }
-        h1 { font-size: 24px; margin-bottom: 20px; color: #38bdf8; }
+        
+        /* Görsel Logo */
+        .logo-container { margin-bottom: 20px; }
+        .logo-container svg { width: 90px; height: 90px; fill: #38bdf8; filter: drop-shadow(0px 0px 8px rgba(56, 189, 248, 0.5)); }
+        
+        h1 { font-size: 28px; margin-bottom: 25px; color: #38bdf8; font-weight: 800; letter-spacing: 1px; }
+        
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { font-size: 14px; color: #94a3b8; font-weight: 600; margin-bottom: 5px; display: block; }
+        
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 16px; text-align: center; transition: 0.3s; }
+        input:focus { outline: none; border-color: #38bdf8; }
+        .code-input { text-transform: uppercase; letter-spacing: 4px; font-weight: bold; font-size: 18px; color: #facc15; }
+        
         .btn { width: 100%; padding: 14px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px; }
         .btn-create { background-color: #22c55e; color: white; }
         .btn-create:hover { background-color: #16a34a; }
         .btn-join { background-color: #3b82f6; color: white; }
         .btn-join:hover { background-color: #2563eb; }
-        input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 16px; text-align: center; text-transform: uppercase; }
-        .status { margin-top: 20px; font-size: 14px; padding: 10px; border-radius: 8px; background: #334155; display: none; }
-        .code-display { font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #facc15; margin: 15px 0; word-break: break-all; }
+        
+        .code-display { font-size: 38px; font-weight: bold; letter-spacing: 6px; color: #facc15; margin: 10px 0 20px 0; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px dashed #475569;}
+        
+        /* Lobi Oyuncu Listesi */
+        .player-list { list-style: none; padding: 0; margin-top: 15px; text-align: left; }
+        .player-list li { background: #0f172a; padding: 12px 15px; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #38bdf8; font-weight: 600; display: flex; align-items: center; }
+        .player-list li::before { content: '👤'; margin-right: 10px; font-size: 18px; }
+        
+        .hidden { display: none !important; }
+        #errorBox { color: #ef4444; margin-top:15px; font-weight:bold; display:none; background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h1>Oyun Portalı</h1>
+<!-- 1. GİRİŞ VE ODA KURMA EKRANI -->
+<div class="card" id="mainMenu">
+    <div class="logo-container">
+        <!-- Konsol Kolu (Gamepad) Görseli -->
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21.928 11.607c-.202-.488-.635-.605-.928-.607h-2.22l-1.611-3.22c-.365-.731-1.124-1.222-1.956-1.222H8.787c-.832 0-1.59.49-1.956 1.222L5.22 11H3c-.293.002-.726.119-.928.607-.225.544-.213 1.258.033 1.996l1.353 4.06c.328.983 1.254 1.637 2.292 1.637h12.5c1.038 0 1.964-.654 2.292-1.637l1.353-4.06c.246-.738.258-1.452.033-1.996zm-15.428-2.5c.092-.183.281-.307.487-.307h9.926c.206 0 .395.124.487.307l1.25 2.5H5.25l1.25-2.5zM7.5 14.5c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1zm3 0c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1zm3 0c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1zm3 0c.552 0 1 .448 1 1s-.448 1-1 1-1-.448-1-1 .448-1 1-1z"/>
+        </svg>
+    </div>
+    
+    <h1>Web Oyuncum</h1>
+    
+    <div class="input-group">
+        <label>Oyun İçi Adın</label>
+        <input type="text" id="playerName" placeholder="Adını buraya yaz...">
+    </div>
     
     <button class="btn btn-create" onclick="createRoom()">Oda Oluştur</button>
     
-    <hr style="border: 0.5px solid #334155; margin: 20px 0;">
+    <hr style="border: 0.5px solid #334155; margin: 25px 0;">
 
-    <input type="text" id="roomInput" placeholder="ODA KODUNU GİR" maxlength="6">
-    <button class="btn btn-join" onclick="joinRoom()">Odaya Katıl</button>
+    <div class="input-group">
+        <label>Odaya Katıl</label>
+        <input type="text" id="roomInput" class="code-input" placeholder="KODU GİR" maxlength="6">
+    </div>
+    <button class="btn btn-join" onclick="joinRoom()">Arkadaşının Odasına Katıl</button>
+    
+    <div id="errorBox"></div>
+</div>
 
-    <div id="statusBox" class="status"></div>
+<!-- 2. OYUN LOBİSİ EKRANI (Başlangıçta Gizli) -->
+<div class="card hidden" id="lobbyMenu">
+    <h1>Oyun Lobisi</h1>
+    <p style="color: #94a3b8; font-size: 14px;">Odana davet etmek için bu kodu yolla:</p>
+    <div class="code-display" id="displayCode">------</div>
+    
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
+        <p style="font-size: 14px; font-weight: bold; color: #38bdf8;">Odadaki Oyuncular</p>
+        <p style="font-size: 12px; color: #94a3b8;" id="playerCountText">1/4 Kişi</p>
+    </div>
+    
+    <ul class="player-list" id="playerList">
+        <!-- İsimler buraya listelenecek -->
+    </ul>
+    
+    <button class="btn btn-create" style="margin-top:25px;" onclick="alert('Oyun başlama ve karakterleri çizdirme kodu bir sonraki aşamada eklenecek!')">Oyunu Başlat</button>
 </div>
 
 <script>
-    // Python sunucusunun adresi (Şimdilik senin bilgisayarında çalışıyor)
-    // İleride buraya Render/Railway adresini yazacağız.
+    // Kendi sunucunun adresi eklendi
     const ws = new WebSocket("wss://oyun-sunucusu-cd47.onrender.com");
 
-    const statusBox = document.getElementById("statusBox");
-
-    ws.onopen = () => {
-        console.log("Sunucuya başarıyla bağlandık!");
-    };
+    const mainMenu = document.getElementById("mainMenu");
+    const lobbyMenu = document.getElementById("lobbyMenu");
+    const errorBox = document.getElementById("errorBox");
+    const playerList = document.getElementById("playerList");
+    const displayCode = document.getElementById("displayCode");
+    const playerCountText = document.getElementById("playerCountText");
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        if (data.type === "room_created") {
-            showStatus(`Oda Açıldı!<div class="code-display">${data.code}</div>Bu kodu arkadaşlarına gönder!`);
-        } 
-        else if (data.type === "player_joined") {
-            showStatus(`<b>Lobi Durumu:</b><br>${data.message}`);
+        // Oda kurulduğunda veya biri katıldığında aynı arayüz çalışacak
+        if (data.type === "room_created" || data.type === "player_joined") {
+            mainMenu.classList.add("hidden");
+            lobbyMenu.classList.remove("hidden");
+            displayCode.innerText = data.code;
+            updatePlayerList(data.players);
         } 
         else if (data.type === "error") {
-            showStatus(`<span style="color:#ef4444">${data.message}</span>`);
+            errorBox.style.display = "block";
+            errorBox.innerText = data.message;
         }
     };
 
+    function getName() {
+        const nameInput = document.getElementById("playerName").value.trim();
+        // Eğer oyuncu ismini boş bırakırsa ona rastgele sayı atar
+        return nameInput === "" ? "Oyuncu_" + Math.floor(Math.random() * 1000) : nameInput;
+    }
+
     function createRoom() {
-        ws.send(JSON.stringify({ action: "create" }));
+        errorBox.style.display = "none";
+        ws.send(JSON.stringify({ action: "create", name: getName() }));
     }
 
     function joinRoom() {
+        errorBox.style.display = "none";
         const code = document.getElementById("roomInput").value.trim().toUpperCase();
         if (code.length === 6) {
-            ws.send(JSON.stringify({ action: "join", code: code }));
+            ws.send(JSON.stringify({ action: "join", code: code, name: getName() }));
         } else {
-            alert("Lütfen 6 haneli oda kodunu eksiksiz gir!");
+            errorBox.style.display = "block";
+            errorBox.innerText = "Lütfen 6 haneli oda kodunu eksiksiz gir!";
         }
     }
 
-    function showStatus(text) {
-        statusBox.style.display = "block";
-        statusBox.innerHTML = text;
+    function updatePlayerList(players) {
+        playerList.innerHTML = ""; // Önce eski listeyi temizle
+        players.forEach(playerName => {
+            const li = document.createElement("li");
+            li.innerText = playerName;
+            playerList.appendChild(li);
+        });
+        // Sağ üstteki 1/4 Kişi sayısını güncelle
+        playerCountText.innerText = players.length + "/4 Kişi";
     }
 </script>
 
