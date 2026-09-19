@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Oyun Portalı</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 400px; text-align: center; }
+        h1 { font-size: 24px; margin-bottom: 20px; color: #38bdf8; }
+        .btn { width: 100%; padding: 14px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 16px; }
+        .btn-create { background-color: #22c55e; color: white; }
+        .btn-create:hover { background-color: #16a34a; }
+        .btn-join { background-color: #3b82f6; color: white; }
+        .btn-join:hover { background-color: #2563eb; }
+        input { width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 16px; text-align: center; text-transform: uppercase; }
+        .status { margin-top: 20px; font-size: 14px; padding: 10px; border-radius: 8px; background: #334155; display: none; }
+        .code-display { font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #facc15; margin: 15px 0; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Oyun Portalı</h1>
+    
+    <button class="btn btn-create" onclick="createRoom()">Oda Oluştur</button>
+    
+    <hr style="border: 0.5px solid #334155; margin: 20px 0;">
+
+    <input type="text" id="roomInput" placeholder="ODA KODUNU GİR" maxlength="6">
+    <button class="btn btn-join" onclick="joinRoom()">Odaya Katıl</button>
+
+    <div id="statusBox" class="status"></div>
+</div>
+
+<script>
+    // Python sunucusunun adresi (Şimdilik senin bilgisayarında çalışıyor)
+    // İleride buraya Render/Railway adresini yazacağız.
+    const ws = new WebSocket("wss://oyun-sunucusu-cd47.onrender.com");
+
+    const statusBox = document.getElementById("statusBox");
+
+    ws.onopen = () => {
+        console.log("Sunucuya başarıyla bağlandık!");
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "room_created") {
+            showStatus(`Oda Açıldı!<div class="code-display">${data.code}</div>Bu kodu arkadaşlarına gönder!`);
+        } 
+        else if (data.type === "player_joined") {
+            showStatus(`<b>Lobi Durumu:</b><br>${data.message}`);
+        } 
+        else if (data.type === "error") {
+            showStatus(`<span style="color:#ef4444">${data.message}</span>`);
+        }
+    };
+
+    function createRoom() {
+        ws.send(JSON.stringify({ action: "create" }));
+    }
+
+    function joinRoom() {
+        const code = document.getElementById("roomInput").value.trim().toUpperCase();
+        if (code.length === 6) {
+            ws.send(JSON.stringify({ action: "join", code: code }));
+        } else {
+            alert("Lütfen 6 haneli oda kodunu eksiksiz gir!");
+        }
+    }
+
+    function showStatus(text) {
+        statusBox.style.display = "block";
+        statusBox.innerHTML = text;
+    }
+</script>
+
+</body>
+</html>
