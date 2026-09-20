@@ -125,6 +125,55 @@ input:focus { outline: none; border-color: #38bdf8; }
 #fBanner span { font-size: 18px; color: #cbd5e1; font-weight: 700; }
 #fDamage { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(127,29,29,0) 40%, rgba(220,38,38,0.65) 100%); transition: opacity 0.35s; }
 #fSpec { position: absolute; bottom: 70px; left: 0; right: 0; text-align: center; pointer-events: none; color: #fca5a5; font-weight: 700; text-shadow: 0 1px 4px #000; }
+
+/* ---- SOHBET VE SESLİ İLETİŞİM KUTUSU ---- */
+#chatContainer {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    width: 320px;
+    max-width: calc(100vw - 20px);
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    z-index: 9999;
+    pointer-events: auto;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+#chatMessages {
+    max-height: 140px;
+    overflow-y: auto;
+    padding: 10px;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+.chat-msg { word-wrap: break-word; text-shadow: 0 1px 2px #000; line-height: 1.3; }
+.chat-msg b { color: #facc15; }
+#chatControls {
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+    border-top: 1px solid #334155;
+    background: #0f172a;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+#chatControls input { padding: 8px 10px; font-size: 13px; border-radius: 6px; flex: 1; text-align: left; }
+.btn-chat { padding: 8px 12px; font-size: 13px; border-radius: 6px; cursor: pointer; border: none; font-weight: bold; color: white; transition: 0.2s; }
+.btn-chat-send { background: #3b82f6; }
+.btn-chat-send:hover { background: #2563eb; }
+.btn-mic { background: #475569; font-size: 15px; }
+.btn-mic.active { background: #22c55e; }
+.btn-mic.muted { background: #ef4444; }
+
+@media (max-width: 600px) {
+    #chatContainer { width: calc(100vw - 20px); bottom: 5px; left: 10px; }
+    #chatMessages { max-height: 100px; }
+}
 </style>
 </head>
 <body>
@@ -245,6 +294,16 @@ input:focus { outline: none; border-color: #38bdf8; }
     </div>
 </div>
 
+<!-- SOHBET VE SESLİ SOHBET KUTUSU -->
+<div id="chatContainer" class="hidden">
+    <div id="chatMessages"></div>
+    <div id="chatControls">
+        <input type="text" id="chatInput" placeholder="Mesaj yaz (Enter)..." maxlength="100">
+        <button class="btn-chat btn-chat-send" id="chatSendBtn">Gönder</button>
+        <button class="btn-chat btn-mic" id="micBtn" title="Mikrofon Aç/Kapat">🎤</button>
+    </div>
+</div>
+
 <script>
 "use strict";
 // ===================================================================
@@ -287,6 +346,9 @@ function showScreen(name) {
     $("lobbyMenu").classList.toggle("hidden", name !== "lobby");
     $("gameRoot").classList.toggle("hidden", name !== "game");
     document.body.classList.toggle("ingame", name === "game");
+
+    if (name === "menu") $("chatContainer").classList.add("hidden");
+    else $("chatContainer").classList.remove("hidden");
 }
 
 function showError(msg) {
@@ -315,6 +377,8 @@ function onWsMessage(event) {
         case "joined": myId = msg.id; break;
         case "room_state": onRoomState(msg); break;
         case "relay": if (currentGame) currentGame.onRelay(msg.from, msg.data); break;
+        case "chat": appendChat(msg.from, msg.text, msg.team); break;
+        case "signal": handleSignal(msg); break;
         case "error": showError(msg.message); break;
         case "left":
             if (currentGame) { currentGame.destroy(); currentGame = null; }
@@ -333,6 +397,12 @@ function onRoomState(s) {
         if (currentGame) { currentGame.destroy(); currentGame = null; }
         showScreen("lobby");
         renderLobby(s);
+    }
+
+    if (localAudioStream && s.players) {
+        s.players.forEach(p => {
+            if (p.id !== myId && !peers[p.id]) createPeer(p.id, true);
+        });
     }
 }
 
@@ -530,12 +600,8 @@ function fmtTime(sec) {
     return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
 }
 
-
 // ===================================================================
 //  OYUN 1: HAPİSHANEDEN KAÇIŞ  (2D, co-op, 2-4 kişi)
-//  - Herkes kendi hücresinde başlar, kilidi açıp çıkar.
-//  - 3 anahtarı topla -> çıkış kapısı açılır -> herkes çıkışa ulaşırsa kazanırsınız.
-//  - Gardiyanları HOST çalıştırır ve diğerlerine yayınlar.
 // ===================================================================
 const PRISON_MAP = [
     "########################################",
@@ -553,7 +619,7 @@ const PRISON_MAP = [
     "###..###############################..##",
     "#......................................#",
     "#......................................#",
-    "######..###############AA##########XX###",
+    "######..---------------+AA----------XX---",
     "#..............###.............##......#",
     "#..............###.............##......#",
     "#...##.........###....#........##......#",
@@ -564,7 +630,6 @@ const PRISON_MAP = [
     "########################################"
 ];
 
-// Gardiyan devriye noktaları [karo x, karo y]
 const PRISON_GUARDS = [
     { wp: [[3, 5], [20, 6], [36, 5], [34, 9], [31, 10], [34, 9]] },
     { wp: [[2, 13], [8, 19], [12, 21], [8, 19], [20, 14], [37, 14], [3, 14]] },
@@ -603,7 +668,6 @@ function startPrison(net) {
     resize();
     on(window, "resize", resize);
 
-    // ---------- Haritayı çöz ----------
     const solid = new Uint8Array(MW * MH);
     const exitZone = new Uint8Array(MW * MH);
     const spawns = [], keys = [], doors = [], plates = [];
@@ -646,7 +710,6 @@ function startPrison(net) {
         return true;
     }
 
-    // ---------- Oyuncular ----------
     const myIdx = Math.max(0, order.indexOf(myId));
     const mySpawn = spawns[myIdx] || spawns[0];
     const me = { x: mySpawn.x * T + T / 2, y: mySpawn.y * T + T / 2, stamina: 100, tired: false, sprint: false, noisy: false, picking: false, escaped: false, safeUntil: 0 };
@@ -661,7 +724,6 @@ function startPrison(net) {
     const t0 = performance.now();
     let endTime = 0;
 
-    // ---------- Gardiyanlar ----------
     const guards = PRISON_GUARDS.map((def, i) => {
         const p = def.wp[0];
         const x = p[0] * T + T / 2, y = p[1] * T + T / 2;
@@ -706,7 +768,7 @@ function startPrison(net) {
         let target;
         if (gd.path.length > 0) target = gd.path[0];
         else {
-            if (tileIdx(gd.x, gd.y) !== tileIdx(tx, ty)) return true;   // ulaşılamaz hedef
+            if (tileIdx(gd.x, gd.y) !== tileIdx(tx, ty)) return true;
             if (Math.hypot(tx - gd.x, ty - gd.y) < 3) return true;
             target = { x: tx, y: ty };
         }
@@ -754,7 +816,6 @@ function startPrison(net) {
         }
     }
 
-    // ---------- Kapılar ----------
     const grpUntil = { A: 0 };
     function updateDoors(now) {
         const alone = net.state().players.length < 2;
@@ -768,7 +829,7 @@ function startPrison(net) {
         for (const d of doors) {
             if (d.kind === "plate") {
                 let open = alone || now < grpUntil[d.grp];
-                if (!open) {   // kapının içinde duran biri varsa kapı kapanmasın
+                if (!open) {
                     const cx = d.x * T + T / 2, cy = d.y * T + T / 2;
                     if (Math.abs(me.x - cx) < T && Math.abs(me.y - cy) < T) open = true;
                     for (const id in others) { const o = others[id]; if (Math.abs(o.x - cx) < T && Math.abs(o.y - cy) < T) open = true; }
@@ -778,7 +839,6 @@ function startPrison(net) {
         }
     }
 
-    // ---------- Girdi ----------
     const keysDown = {};
     on(window, "keydown", (e) => {
         keysDown[e.code] = true;
@@ -848,7 +908,6 @@ function startPrison(net) {
         }
     }
 
-    // ---------- Olaylar ----------
     function updateKeysHud() { $("pKeys").textContent = "🔑 " + keysGot + "/" + KEYS_NEEDED; }
     function takeKey(id, byId) {
         const k = keys.find((q) => q.id === id);
@@ -894,7 +953,7 @@ function startPrison(net) {
         tone(523, 0.3, "triangle", 0.15); setTimeout(() => tone(784, 0.5, "triangle", 0.15), 250);
         showEnd(net, "KAÇTINIZ! 🎉", `Hepiniz hapishaneden kurtuldunuz.<br>Süre: <b>${fmtTime(t)}</b> • Yakalanma: <b>${c}</b>`, "#22c55e");
     }
-    function calmGuards() {   // yakalama sonrası gardiyanlar devriyeye dönsün (hücre başında beklemesinler)
+    function calmGuards() {
         for (const gd of guards) { if (gd.state !== 0) { gd.state = 0; gd.path = []; gd.pathKey = ""; } }
     }
     function caughtNow(now) {
@@ -912,7 +971,6 @@ function startPrison(net) {
         for (const gd of guards) if (Math.hypot(gd.x - me.x, gd.y - me.y) < 15) { caughtNow(now); break; }
     }
 
-    // ---------- Çizim ----------
     let camX = me.x, camY = me.y;
 
     const miniBase = document.createElement("canvas");
@@ -1023,20 +1081,17 @@ function startPrison(net) {
         }
         for (const gd of guards) drawGuard(gd);
 
-        // karanlık: fener ışığı efekti
         g.setTransform(1, 0, 0, 1, 0, 0);
         const cx = vw / 2, cy = vh / 2;
         const gr = g.createRadialGradient(cx, cy, 60 * scale, cx, cy, 300 * scale);
         gr.addColorStop(0, "rgba(0,0,10,0)"); gr.addColorStop(1, "rgba(0,0,10,0.86)");
         g.fillStyle = gr; g.fillRect(0, 0, vw, vh);
 
-        // oyuncular her zaman görünür
         g.setTransform(scale, 0, 0, scale, Math.round(vw / 2 - camX * scale), Math.round(vh / 2 - camY * scale));
         for (const id in others) { const o = others[id]; drawPlayer(id, o.x, o.y, o.escaped, o.sprint, now, false); }
         drawPlayer(myId, me.x, me.y, me.escaped, me.noisy, now, true);
         g.setTransform(1, 0, 0, 1, 0, 0);
 
-        // mini harita
         mg.clearRect(0, 0, mini.width, mini.height);
         mg.drawImage(miniBase, 0, 0);
         for (const d of doors) { mg.fillStyle = d.open ? "#22c55e" : (d.kind === "cell" ? "#9ca3af" : d.kind === "plate" ? "#a855f7" : "#ef4444"); mg.fillRect(d.x * 4, d.y * 4, 4, 4); }
@@ -1064,7 +1119,6 @@ function startPrison(net) {
         }
     }
 
-    // ---------- Ana döngü ----------
     let last = performance.now(), lastSend = 0, lastGuardSend = 0;
     function frame(now) {
         if (dead) return;
@@ -1157,12 +1211,8 @@ function startPrison(net) {
     };
 }
 
-
 // ===================================================================
-//  OYUN 2: ÇATIŞMA (FPS) - 1v1 / 1v2 / 2v2, raundlu, CS / Valorant tarzı
-//  - Harici kütüphane yok: kendi raycaster motoru (Wolfenstein tarzı).
-//  - Raund akışını HOST yönetir (freeze -> live -> roundend), can her oyuncuda kendinde tutulur.
-//  - Vuruşu atış yapan oyuncu hesaplar, hasarı kurbana gönderir.
+//  OYUN 2: ÇATIŞMA (FPS)
 // ===================================================================
 const FPS_MAP = [
     "################################",
@@ -1206,7 +1256,7 @@ function startFps(net) {
     const myTeam = teamOf[myId];
     const teamCount = [0, 0];
     order.forEach((id) => teamCount[teamOf[id]]++);
-    const maxHp = teamCount[myTeam] < teamCount[1 - myTeam] ? 150 : 100;   // tek kişilik takım +50 can
+    const maxHp = teamCount[myTeam] < teamCount[1 - myTeam] ? 150 : 100;
     const TEAM_NAMES = ["MAVİ", "KIRMIZI"], TEAM_COL = ["#3b82f6", "#ef4444"], TEAM_LIGHT = ["#93c5fd", "#fca5a5"];
 
     const WEAPONS = [
@@ -1215,7 +1265,6 @@ function startFps(net) {
     ];
     const ROUND_TIME = 100, FREEZE_TIME = 4, END_TIME = 4, WIN_ROUNDS = 4;
 
-    // ---------- Harita ----------
     const MW = FPS_MAP[0].length, MH = FPS_MAP.length;
     const grid = new Uint8Array(MW * MH);
     const WALLCH = { "#": 1, "C": 2, "M": 3 };
@@ -1226,7 +1275,7 @@ function startFps(net) {
         else if (ch === "a") spawnRaw[0].push([x + 0.5, y + 0.5]);
         else if (ch === "b") spawnRaw[1].push([x + 0.5, y + 0.5]);
     }
-    function orderSpawns(list) {   // kuzey/güney kutularını sırayla dağıt
+    function orderSpawns(list) {
         const n = list.filter((p) => p[1] < MH / 2), s = list.filter((p) => p[1] >= MH / 2), out = [];
         for (let i = 0; i < Math.max(n.length, s.length); i++) { if (n[i]) out.push(n[i]); if (s[i]) out.push(s[i]); }
         return out;
@@ -1242,7 +1291,6 @@ function startFps(net) {
         return false;
     }
 
-    // ---------- Raycaster çekirdeği ----------
     const H = 360, VFOV = 60 * Math.PI / 180;
     let W = 640, planeDist = 300, planeLen = 1, zbuf = new Float32Array(W);
     function resize() {
@@ -1275,7 +1323,6 @@ function startFps(net) {
         RAY.side = side; RAY.type = type || 1;
     }
 
-    // ---------- Prosedürel dokular ve sprite'lar ----------
     let seed = 987654321;
     const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
     function mkTex(draw) {
@@ -1312,7 +1359,6 @@ function startFps(net) {
     const st = spriteTmp.getContext("2d");
     const SHADE = []; for (let i = 0; i <= 20; i++) SHADE.push(`rgba(0,0,0,${(i / 20).toFixed(2)})`);
 
-    // ---------- Oyun durumu ----------
     const self = { x: 2, y: 8, a: 0, pitch: 0, recoil: 0, hp: maxHp, alive: true, cur: 0, ammo: [WEAPONS[0].mag, WEAPONS[1].mag],
                    reloadEnd: 0, nextShot: 0, burst: 0, lastShotAt: 0, bobT: 0, bobAmp: 0, moving: false, kick: 0 };
     const others = {};
@@ -1336,7 +1382,6 @@ function startFps(net) {
         for (const id in others) others[id].first = true;
     }
 
-    // ---------- Raund makinesi (host yönetir, herkes kopyasını tutar) ----------
     function commit() { net.send({ k: "S", S }); afterState(); }
     function afterState() {
         if (S.phase === "freeze" && S.round !== localRound) { localRound = S.round; respawn(); tone(440, 0.15, "square", 0.08); }
@@ -1356,7 +1401,7 @@ function startFps(net) {
         }
         const cnt = [0, 0], alive = [0, 0];
         net.state().players.forEach((p) => { cnt[p.team]++; if (!deadSet.has(p.id)) alive[p.team]++; });
-        if (cnt[0] === 0 || cnt[1] === 0) {   // bir takımın herkesi ayrıldı
+        if (cnt[0] === 0 || cnt[1] === 0) {
             S.phase = "over"; S.matchWinner = cnt[0] === 0 && cnt[1] === 0 ? null : (cnt[0] > 0 ? 0 : 1);
             commit(); return;
         }
@@ -1382,7 +1427,6 @@ function startFps(net) {
             w === null ? "#94a3b8" : won ? "#22c55e" : "#ef4444");
     }
 
-    // ---------- Girdi ----------
     const lockEl = $("fLock");
     on(lockEl, "click", () => { cvs.requestPointerLock(); actx(); });
     on(cvs, "click", () => { if (!locked) cvs.requestPointerLock(); });
@@ -1407,7 +1451,6 @@ function startFps(net) {
     on(window, "keyup", (e) => { keys[e.code] = false; });
     on(window, "blur", () => { for (const k in keys) keys[k] = false; fireHeld = false; });
 
-    // ---------- Silah / atış ----------
     function startReload() {
         const w = WEAPONS[self.cur];
         if (!self.alive || self.reloadEnd || self.ammo[self.cur] >= w.mag) return;
@@ -1473,7 +1516,6 @@ function startFps(net) {
         if (self.ammo[self.cur] <= 0) startReload();
     }
 
-    // ---------- Hasar / ölüm ----------
     let dmgTimer = 0;
     function flashDamage() {
         const el = $("fDamage"); el.style.opacity = "1";
@@ -1503,7 +1545,6 @@ function startFps(net) {
         }
     }
 
-    // ---------- Hareket ----------
     function updateSelf(dt) {
         self.moving = false;
         let moved = false;
@@ -1528,7 +1569,6 @@ function startFps(net) {
         self.bobAmp += ((moved ? 3 : 0) - self.bobAmp) * Math.min(1, dt * 8);
     }
 
-    // ---------- Çizim ----------
     function drawSprites(cx, cy, dirX, dirY, horizon) {
         const list = [];
         for (const id in others) {
@@ -1655,7 +1695,6 @@ function startFps(net) {
         }
     }
 
-    // ---------- HUD ----------
     const cache = {};
     function setHtml(id, html) { if (cache[id] !== html) { cache[id] = html; $(id).innerHTML = html; } }
     function setText(id, t) { if (cache[id] !== t) { cache[id] = t; $(id).textContent = t; } }
@@ -1693,7 +1732,6 @@ function startFps(net) {
         $("xh").style.setProperty("--gap", (3 + currentSpread() * planeDist * (window.innerHeight / H) * 0.6) + "px");
     }
 
-    // ---------- Ana döngü ----------
     let last = performance.now(), lastSend = 0;
     function frame(now) {
         if (destroyed) return;
@@ -1712,7 +1750,6 @@ function startFps(net) {
             lastSend = now;
             net.send({ k: "p", x: Math.round(self.x * 100) / 100, y: Math.round(self.y * 100) / 100, a: Math.round(self.a * 100) / 100 });
         }
-        // kamera
         let cam;
         if (self.alive) cam = { x: self.x, y: self.y, a: self.a, p: self.pitch + self.recoil, bob: Math.sin(self.bobT) * self.bobAmp };
         else {
@@ -1768,6 +1805,122 @@ function startFps(net) {
     };
 }
 
+// ===================================================================
+//  SOHBET VE SESLİ SOHBET (WebRTC) SİSTEMİ
+// ===================================================================
+const chatMessages = $("chatMessages");
+const chatInput = $("chatInput");
+
+if ($("chatSendBtn")) $("chatSendBtn").onclick = sendChatMsg;
+if (chatInput) {
+    chatInput.addEventListener("keydown", (e) => { 
+        if (e.key === "Enter") sendChatMsg(); 
+        e.stopPropagation(); // Yazı yazarken oyun kontrollerinin (WASD) tetiklenmesini engeller
+    });
+}
+
+function sendChatMsg() {
+    const text = chatInput.value.trim();
+    if (text && wsReady) {
+        wsSend({ action: "chat", text: text });
+        chatInput.value = "";
+    }
+}
+
+function appendChat(from, text, team) {
+    const div = document.createElement("div");
+    div.className = "chat-msg";
+    let color = "#facc15"; 
+    if (team === 0) color = "#93c5fd";
+    if (team === 1) color = "#fca5a5";
+    
+    div.innerHTML = `<b style="color:${color}">${escHtml(from)}:</b> ${escHtml(text)}`;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Sesli İletişim Değişkenleri (WebRTC P2P)
+let localAudioStream = null;
+const peers = {};
+
+if ($("micBtn")) {
+    $("micBtn").onclick = async () => {
+        const btn = $("micBtn");
+        if (!localAudioStream) {
+            try {
+                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                btn.classList.add("active");
+                btn.classList.remove("muted");
+                toast("Mikrofon açıldı.");
+                
+                if (roomState) {
+                    roomState.players.forEach(p => {
+                        if (p.id !== myId) createPeer(p.id, true);
+                    });
+                }
+            } catch (e) {
+                toast("Mikrofon izni reddedildi!");
+            }
+        } else {
+            const track = localAudioStream.getAudioTracks()[0];
+            track.enabled = !track.enabled;
+            btn.classList.toggle("active", track.enabled);
+            btn.classList.toggle("muted", !track.enabled);
+            toast(track.enabled ? "Mikrofon açıldı." : "Mikrofon susturuldu.");
+        }
+    };
+}
+
+function createPeer(peerId, isInitiator) {
+    if (peers[peerId]) return peers[peerId];
+    
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    peers[peerId] = pc;
+
+    if (localAudioStream) {
+        localAudioStream.getTracks().forEach(t => pc.addTrack(t, localAudioStream));
+    }
+
+    pc.onicecandidate = (e) => {
+        if (e.candidate) wsSend({ action: "signal", to: peerId, signal: { ice: e.candidate } });
+    };
+
+    pc.ontrack = (e) => {
+        let audio = document.getElementById("audio_" + peerId);
+        if (!audio) {
+            audio = document.createElement("audio");
+            audio.id = "audio_" + peerId;
+            audio.autoplay = true;
+            document.body.appendChild(audio);
+        }
+        audio.srcObject = e.streams[0];
+    };
+
+    if (isInitiator) {
+        pc.createOffer().then(offer => {
+            pc.setLocalDescription(offer);
+            wsSend({ action: "signal", to: peerId, signal: { sdp: offer } });
+        });
+    }
+    return pc;
+}
+
+async function handleSignal(msg) {
+    const peerId = msg.from;
+    const pc = peers[peerId] || createPeer(peerId, false);
+    const sig = msg.signal;
+
+    if (sig.sdp) {
+        await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
+        if (sig.sdp.type === "offer") {
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            wsSend({ action: "signal", to: peerId, signal: { sdp: answer } });
+        }
+    } else if (sig.ice) {
+        await pc.addIceCandidate(new RTCIceCandidate(sig.ice));
+    }
+}
 
 connect();
 </script>
