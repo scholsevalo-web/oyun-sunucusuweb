@@ -7,8 +7,8 @@
 <style>
 * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
 html, body { background-color: #0f172a; color: #f8fafc; }
-body { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-body.ingame { overflow: hidden; }
+body { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; touch-action: manipulation; }
+body.ingame { overflow: hidden; padding: 0; }
 .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 400px; text-align: center; }
 .card.wide { max-width: 580px; }
 .logo-container { margin-bottom: 20px; }
@@ -126,53 +126,66 @@ input:focus { outline: none; border-color: #38bdf8; }
 #fDamage { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(127,29,29,0) 40%, rgba(220,38,38,0.65) 100%); transition: opacity 0.35s; }
 #fSpec { position: absolute; bottom: 70px; left: 0; right: 0; text-align: center; pointer-events: none; color: #fca5a5; font-weight: 700; text-shadow: 0 1px 4px #000; }
 
-/* ---- SOHBET VE SESLİ İLETİŞİM KUTUSU ---- */
-#chatContainer {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    width: 320px;
-    max-width: calc(100vw - 20px);
-    background: rgba(15, 23, 42, 0.88);
-    border: 1px solid #334155;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    z-index: 9999;
-    pointer-events: auto;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+/* craft / envanter */
+#pCraft {
+    position: absolute; inset: 0; background: rgba(2,6,23,0.88); z-index: 40;
+    display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px;
 }
-#chatMessages {
-    max-height: 140px;
-    overflow-y: auto;
-    padding: 10px;
-    font-size: 13px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-.chat-msg { word-wrap: break-word; text-shadow: 0 1px 2px #000; line-height: 1.3; }
-.chat-msg b { color: #facc15; }
-#chatControls {
-    display: flex;
-    gap: 6px;
-    padding: 8px;
-    border-top: 1px solid #334155;
-    background: #0f172a;
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
-}
-#chatControls input { padding: 8px 10px; font-size: 13px; border-radius: 6px; flex: 1; text-align: left; }
-.btn-chat { padding: 8px 12px; font-size: 13px; border-radius: 6px; cursor: pointer; border: none; font-weight: bold; color: white; transition: 0.2s; }
-.btn-chat-send { background: #3b82f6; }
-.btn-chat-send:hover { background: #2563eb; }
-.btn-mic { background: #475569; font-size: 15px; }
-.btn-mic.active { background: #22c55e; }
-.btn-mic.muted { background: #ef4444; }
+#pCraft.open { display: flex; }
+#pCraft h2 { color: #facc15; margin-bottom: 8px; letter-spacing: 2px; }
+#pCraft .sub { color: #94a3b8; font-size: 13px; margin-bottom: 14px; }
+#pInv { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 520px; margin-bottom: 16px; }
+#pInv .slot { background: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 8px 12px; min-width: 86px; text-align: center; }
+#pInv .slot b { display: block; font-size: 18px; color: #f8fafc; }
+#pInv .slot span { font-size: 11px; color: #94a3b8; }
+#pRecipes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 560px; width: 100%; }
+#pRecipes .rec { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px; text-align: left; }
+#pRecipes .rec h4 { font-size: 14px; margin-bottom: 4px; }
+#pRecipes .rec small { color: #94a3b8; display: block; margin-bottom: 8px; line-height: 1.4; }
+#pRecipes .rec button { width: 100%; padding: 8px; border: none; border-radius: 6px; background: #22c55e; color: #fff; font-weight: 800; cursor: pointer; }
+#pRecipes .rec button:disabled { background: #475569; cursor: not-allowed; }
+#pEscapes { font-size: 12px; color: #cbd5e1; margin-top: 14px; max-width: 560px; line-height: 1.5; text-align: left; }
 
-@media (max-width: 600px) {
-    #chatContainer { width: calc(100vw - 20px); bottom: 5px; left: 10px; }
-    #chatMessages { max-height: 100px; }
+/* ses + dokunmatik */
+#voiceBtn, #voiceDot {
+    position: absolute; z-index: 25; pointer-events: auto;
+}
+#voiceBtn {
+    right: 14px; bottom: 120px; width: 54px; height: 54px; border-radius: 50%;
+    border: 2px solid #475569; background: rgba(15,23,42,0.85); color: #e2e8f0;
+    font-size: 22px; cursor: pointer;
+}
+#voiceBtn.live { background: #b91c1c; border-color: #fca5a5; }
+#voiceDot { left: 50%; top: 52px; transform: translateX(-50%); display: none; }
+#voiceDot.on { display: block; }
+#touchUI { position: absolute; inset: 0; z-index: 20; pointer-events: none; display: none; }
+#touchUI.show { display: block; }
+#joyBase {
+    position: absolute; left: 22px; bottom: 28px; width: 128px; height: 128px; border-radius: 50%;
+    background: rgba(15,23,42,0.45); border: 2px solid rgba(148,163,184,0.45); pointer-events: auto;
+}
+#joyKnob {
+    position: absolute; left: 39px; top: 39px; width: 50px; height: 50px; border-radius: 50%;
+    background: rgba(226,232,240,0.85);
+}
+#lookZone { position: absolute; right: 0; top: 0; width: 58%; height: 100%; pointer-events: auto; }
+.tbtn {
+    position: absolute; pointer-events: auto; border: 1px solid #475569; background: rgba(15,23,42,0.72);
+    color: #f8fafc; font-weight: 800; border-radius: 12px; padding: 12px 14px; font-size: 13px;
+}
+#tFire { right: 22px; bottom: 28px; width: 86px; height: 86px; border-radius: 50%; font-size: 16px; background: rgba(185,28,28,0.75); }
+#tSprint { right: 118px; bottom: 36px; }
+#tCrouch { right: 118px; bottom: 88px; }
+#tReload { right: 22px; bottom: 124px; }
+#tInteract { left: 50%; bottom: 28px; transform: translateX(-50%); }
+#tTab { left: 22px; top: 14px; }
+@media (min-width: 901px) {
+    #touchUI.show.force { display: block; }
+}
+@media (max-width: 900px) {
+    .card { padding: 18px; }
+    #pHelp, #fLock p { font-size: 12px; }
+    #prisonMini, #fpsRadar { transform: scale(0.85); transform-origin: bottom right; }
 }
 </style>
 </head>
@@ -221,13 +234,13 @@ input:focus { outline: none; border-color: #38bdf8; }
             <div class="ico">⛓️</div>
             <h3>Hapishaneden Kaçış</h3>
             <div class="meta">2-4 kişi • 2D • Co-op</div>
-            <small>Hücrenden çık, 3 anahtarı bul, gardiyanlara yakalanma. Hep birlikte kaçın!</small>
+            <small>Loot topla, TAB ile craft yap, avlu/tünel/havalandırma/duvar/kapıdan kaç. Gardiyanlara yakalanma!</small>
         </div>
         <div class="game-card" id="gcFps" data-game="fps">
             <div class="ico">🔫</div>
             <h3>Çatışma (FPS)</h3>
             <div class="meta">1v1 • 1v2 • 2v2</div>
-            <small>Valorant / CS tarzı, raundlu takım çatışması. İlk 4 raundu alan kazanır.</small>
+            <small>Valorant / CS tarzı, raundlu takım çatışması. Telefon + PC, sesli sohbet. İlk 4 raundu alan kazanır.</small>
         </div>
     </div>
 
@@ -252,17 +265,24 @@ input:focus { outline: none; border-color: #38bdf8; }
     <div class="hidden" id="prisonGame">
         <canvas id="prisonCanvas" class="full"></canvas>
         <div id="pHudTop">
-            <div class="pill" id="pKeys">🔑 0/3</div>
+            <div class="pill" id="pKeys">🎒 Loot</div>
             <div class="pill" id="pTime">00:00</div>
             <div class="pill" id="pCaught">🚨 0</div>
         </div>
         <div id="pParty"></div>
-        <canvas id="prisonMini" width="160" height="96"></canvas>
+        <canvas id="prisonMini" width="192" height="120"></canvas>
         <div id="pStamina"><div id="pStaminaFill"></div></div>
-        <div id="pHelp">WASD: yürü • Shift: koş (ses çıkarır!) • E: kilit aç (basılı tut)</div>
+        <div id="pHelp">WASD yürü • Shift koş (ses) • E etkileşim • TAB craft • C eğil</div>
         <div class="pill" id="pPrompt"></div>
         <div id="pProgress"><div></div></div>
         <div class="pill" id="pToast"></div>
+        <div id="pCraft">
+            <h2>ENVANTER / CRAFT</h2>
+            <div class="sub">TAB veya X ile kapat • Malzeme topla, eşya üret, kaçış noktasında E bas</div>
+            <div id="pInv"></div>
+            <div id="pRecipes"></div>
+            <div id="pEscapes"></div>
+        </div>
     </div>
 
     <!-- FPS -->
@@ -280,10 +300,23 @@ input:focus { outline: none; border-color: #38bdf8; }
         <div id="fAmmo" class="pill"><b id="fAmmoText">30</b><small id="fWeaponText">Tüfek</small></div>
         <div id="fLock" class="overlay">
             <h2>ÇATIŞMA</h2>
-            <p>Oynamak için tıkla.<br>
-            <b>WASD</b> hareket • <b>Fare</b> nişan • <b>Sol tık</b> ateş • <b>R</b> şarjör • <b>1/2</b> silah • <b>Shift</b> yavaş yürü (daha isabetli)<br>
-            Kafadan vuruş çok daha fazla hasar verir. Esc ile fareyi serbest bırakırsın.</p>
+            <p>Oynamak için tıkla / dokun.<br>
+            <b>WASD</b> yürü • <b>Shift</b> koş • <b>Ctrl / C</b> eğil • <b>Fare</b> nişan • <b>Sol tık</b> ateş • <b>R</b> şarjör • <b>1/2</b> silah • <b>V</b> konuş<br>
+            Telefonda sol joystick, sağda bakış, kırmızı ateş. Kafadan vuruş daha fazla hasar verir.</p>
         </div>
+    </div>
+
+    <button id="voiceBtn" title="Basılı tut konuş (V)">🎤</button>
+    <div id="voiceDot" class="pill">Konuşuluyor…</div>
+    <div id="touchUI">
+        <div id="joyBase"><div id="joyKnob"></div></div>
+        <div id="lookZone"></div>
+        <button class="tbtn" id="tFire">ATEŞ</button>
+        <button class="tbtn" id="tSprint">KOŞ</button>
+        <button class="tbtn" id="tCrouch">EĞİL</button>
+        <button class="tbtn" id="tReload">R</button>
+        <button class="tbtn" id="tInteract">E</button>
+        <button class="tbtn" id="tTab">TAB</button>
     </div>
 
     <!-- OYUN SONU -->
@@ -291,16 +324,6 @@ input:focus { outline: none; border-color: #38bdf8; }
         <h2 id="endTitle"></h2>
         <p id="endText"></p>
         <button class="btn btn-create" id="endBtn">Lobiye Dön</button>
-    </div>
-</div>
-
-<!-- SOHBET VE SESLİ SOHBET KUTUSU -->
-<div id="chatContainer" class="hidden">
-    <div id="chatMessages"></div>
-    <div id="chatControls">
-        <input type="text" id="chatInput" placeholder="Mesaj yaz (Enter)..." maxlength="100">
-        <button class="btn-chat btn-chat-send" id="chatSendBtn">Gönder</button>
-        <button class="btn-chat btn-mic" id="micBtn" title="Mikrofon Aç/Kapat">🎤</button>
     </div>
 </div>
 
@@ -346,9 +369,6 @@ function showScreen(name) {
     $("lobbyMenu").classList.toggle("hidden", name !== "lobby");
     $("gameRoot").classList.toggle("hidden", name !== "game");
     document.body.classList.toggle("ingame", name === "game");
-
-    if (name === "menu") $("chatContainer").classList.add("hidden");
-    else $("chatContainer").classList.remove("hidden");
 }
 
 function showError(msg) {
@@ -377,8 +397,6 @@ function onWsMessage(event) {
         case "joined": myId = msg.id; break;
         case "room_state": onRoomState(msg); break;
         case "relay": if (currentGame) currentGame.onRelay(msg.from, msg.data); break;
-        case "chat": appendChat(msg.from, msg.text, msg.team); break;
-        case "signal": handleSignal(msg); break;
         case "error": showError(msg.message); break;
         case "left":
             if (currentGame) { currentGame.destroy(); currentGame = null; }
@@ -397,12 +415,6 @@ function onRoomState(s) {
         if (currentGame) { currentGame.destroy(); currentGame = null; }
         showScreen("lobby");
         renderLobby(s);
-    }
-
-    if (localAudioStream && s.players) {
-        s.players.forEach(p => {
-            if (p.id !== myId && !peers[p.id]) createPeer(p.id, true);
-        });
     }
 }
 
@@ -600,48 +612,254 @@ function fmtTime(sec) {
     return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
 }
 
+const IS_TOUCH = (("ontouchstart" in window) || navigator.maxTouchPoints > 0) && matchMedia("(pointer: coarse)").matches;
+
+function attachTouch(keysDown, opts) {
+    const ui = $("touchUI");
+    if (!IS_TOUCH && !(opts && opts.force)) { ui.classList.remove("show"); return { ax: 0, ay: 0, lookX: 0, lookY: 0, consumeLook() { return { x: 0, y: 0 }; }, destroy() {} }; }
+    ui.classList.add("show");
+    const prison = opts && opts.mode === "prison";
+    $("tFire").style.display = prison ? "none" : "";
+    $("tReload").style.display = prison ? "none" : "";
+    $("tInteract").style.display = prison ? "" : "none";
+    $("tTab").style.display = prison ? "" : "none";
+    const st = { ax: 0, ay: 0, lookX: 0, lookY: 0, jId: null, lId: null };
+    const base = $("joyBase"), knob = $("joyKnob"), look = $("lookZone");
+    const cleanFns = [];
+    function joy(cx, cy) {
+        const r = base.getBoundingClientRect(), mx = r.left + r.width / 2, my = r.top + r.height / 2;
+        let dx = cx - mx, dy = cy - my, d = Math.hypot(dx, dy), max = r.width * 0.38;
+        if (d > max) { dx *= max / d; dy *= max / d; d = max; }
+        knob.style.left = (39 + dx) + "px"; knob.style.top = (39 + dy) + "px";
+        st.ax = d < 8 ? 0 : dx / max; st.ay = d < 8 ? 0 : dy / max;
+        keysDown.KeyA = st.ax < -0.35; keysDown.KeyD = st.ax > 0.35;
+        keysDown.KeyW = st.ay < -0.35; keysDown.KeyS = st.ay > 0.35;
+    }
+    function hold(el, code, toggle) {
+        const down = (e) => { e.preventDefault(); if (toggle) keysDown[code] = !keysDown[code]; else keysDown[code] = true; el.style.opacity = "0.7"; };
+        const up = (e) => { e.preventDefault(); if (!toggle) keysDown[code] = false; el.style.opacity = "1"; };
+        el.addEventListener("touchstart", down, { passive: false });
+        el.addEventListener("touchend", up, { passive: false });
+        el.addEventListener("touchcancel", up, { passive: false });
+        cleanFns.push(() => { el.removeEventListener("touchstart", down); el.removeEventListener("touchend", up); el.removeEventListener("touchcancel", up); });
+    }
+    const jd = (e) => { const t = e.changedTouches[0]; st.jId = t.identifier; joy(t.clientX, t.clientY); e.preventDefault(); };
+    const jm = (e) => { for (const t of e.changedTouches) if (t.identifier === st.jId) joy(t.clientX, t.clientY); };
+    const ju = (e) => { for (const t of e.changedTouches) if (t.identifier === st.jId) { st.jId = null; st.ax = st.ay = 0; knob.style.left = "39px"; knob.style.top = "39px"; keysDown.KeyW = keysDown.KeyA = keysDown.KeyS = keysDown.KeyD = false; } };
+    base.addEventListener("touchstart", jd, { passive: false });
+    window.addEventListener("touchmove", jm, { passive: false });
+    window.addEventListener("touchend", ju);
+    look.addEventListener("touchstart", (e) => { const t = e.changedTouches[0]; st.lId = t.identifier; st._lx = t.clientX; st._ly = t.clientY; e.preventDefault(); }, { passive: false });
+    look.addEventListener("touchmove", (e) => {
+        for (const t of e.changedTouches) if (t.identifier === st.lId) {
+            st.lookX += t.clientX - st._lx; st.lookY += t.clientY - st._ly;
+            st._lx = t.clientX; st._ly = t.clientY;
+        }
+        e.preventDefault();
+    }, { passive: false });
+    look.addEventListener("touchend", (e) => { for (const t of e.changedTouches) if (t.identifier === st.lId) st.lId = null; });
+    hold($("tSprint"), "ShiftLeft", true);
+    hold($("tCrouch"), "KeyC", true);
+    hold($("tReload"), "KeyR", false);
+    hold($("tInteract"), "KeyE", false);
+    hold($("tTab"), "Tab", false);
+    const fireDown = (e) => { e.preventDefault(); if (opts && opts.onFire) opts.onFire(true); };
+    const fireUp = (e) => { e.preventDefault(); if (opts && opts.onFire) opts.onFire(false); };
+    $("tFire").addEventListener("touchstart", fireDown, { passive: false });
+    $("tFire").addEventListener("touchend", fireUp, { passive: false });
+    return {
+        st,
+        consumeLook() { const x = st.lookX, y = st.lookY; st.lookX = st.lookY = 0; return { x, y }; },
+        destroy() {
+            ui.classList.remove("show");
+            cleanFns.forEach((f) => f());
+            base.removeEventListener("touchstart", jd);
+            window.removeEventListener("touchmove", jm);
+            window.removeEventListener("touchend", ju);
+            $("tFire").removeEventListener("touchstart", fireDown);
+            $("tFire").removeEventListener("touchend", fireUp);
+        }
+    };
+}
+
+function createVoice(net) {
+    let rec = null, proc = null, src = null, talking = false, stream = null;
+    const players = {};
+    const btn = $("voiceBtn"), dot = $("voiceDot");
+    btn.classList.remove("hidden"); btn.classList.remove("live");
+    async function startMic() {
+        const a = actx(); if (!a) return;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+            src = a.createMediaStreamSource(stream);
+            proc = a.createScriptProcessor(2048, 1, 1);
+            proc.onaudioprocess = (ev) => {
+                if (!talking) return;
+                const inp = ev.inputBuffer.getChannelData(0);
+                const step = Math.max(1, Math.floor(a.sampleRate / 8000));
+                const n = Math.floor(inp.length / step);
+                const bytes = new Uint8Array(n);
+                for (let i = 0; i < n; i++) bytes[i] = clamp((inp[i * step] + 1) * 127.5, 0, 255);
+                let s = ""; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+                net.send({ k: "vc", a: btoa(s) });
+            };
+            src.connect(proc); proc.connect(a.destination);
+        } catch (e) { toast("Mikrofon izni gerekli"); }
+    }
+    function setTalk(on) {
+        talking = on; btn.classList.toggle("live", on);
+        if (on && !proc) startMic();
+    }
+    function playPacket(from, b64) {
+        const a = actx(); if (!a) return;
+        try {
+            const raw = atob(b64);
+            const n = raw.length;
+            const buf = a.createBuffer(1, n, 8000);
+            const ch = buf.getChannelData(0);
+            for (let i = 0; i < n; i++) ch[i] = raw.charCodeAt(i) / 127.5 - 1;
+            const s = a.createBufferSource(); s.buffer = buf;
+            let p = players[from];
+            if (!p) { p = players[from] = a.createGain(); p.gain.value = 0.9; p.connect(a.destination); }
+            s.connect(p); s.start();
+            dot.classList.add("on");
+            clearTimeout(dot._t); dot._t = setTimeout(() => dot.classList.remove("on"), 400);
+        } catch (e) {}
+    }
+    const kd = (e) => { if (e.code === "KeyV") { e.preventDefault(); setTalk(true); } };
+    const ku = (e) => { if (e.code === "KeyV") setTalk(false); };
+    window.addEventListener("keydown", kd);
+    window.addEventListener("keyup", ku);
+    const td = (e) => { e.preventDefault(); setTalk(true); };
+    const tu = (e) => { e.preventDefault(); setTalk(false); };
+    btn.addEventListener("mousedown", td);
+    btn.addEventListener("mouseup", tu);
+    btn.addEventListener("mouseleave", tu);
+    btn.addEventListener("touchstart", td, { passive: false });
+    btn.addEventListener("touchend", tu, { passive: false });
+    return {
+        onRelay(from, d) { if (d && d.k === "vc" && d.a) playPacket(from, d.a); },
+        destroy() {
+            setTalk(false);
+            window.removeEventListener("keydown", kd);
+            window.removeEventListener("keyup", ku);
+            btn.removeEventListener("mousedown", td); btn.removeEventListener("mouseup", tu);
+            btn.removeEventListener("mouseleave", tu); btn.removeEventListener("touchstart", td); btn.removeEventListener("touchend", tu);
+            try { if (proc) proc.disconnect(); if (src) src.disconnect(); } catch (e) {}
+            if (stream) stream.getTracks().forEach((t) => t.stop());
+            btn.classList.remove("live"); dot.classList.remove("on");
+        }
+    };
+}
+
+function drawHuman(g, x, y, ang, col, dark, opt) {
+    const t = opt.t || 0, walk = opt.walk || 0, run = opt.run || 0, crouch = opt.crouch || 0;
+    const spd = run ? 14 : 9;
+    const swing = Math.sin(t * spd) * walk * (run ? 10 : 7);
+    const bodyH = crouch ? 11 : 16;
+    g.save();
+    g.translate(x, y);
+    g.rotate(ang);
+    g.globalAlpha = opt.alpha == null ? 1 : opt.alpha;
+    g.fillStyle = "rgba(0,0,0,0.35)";
+    g.beginPath(); g.ellipse(0, 10, 9, 4, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = dark; g.lineWidth = 4; g.lineCap = "round";
+    g.beginPath(); g.moveTo(-3, 4); g.lineTo(-3 + swing * 0.15, 4 + bodyH * 0.55); g.stroke();
+    g.beginPath(); g.moveTo(3, 4); g.lineTo(3 - swing * 0.15, 4 + bodyH * 0.55); g.stroke();
+    g.fillStyle = col;
+    if (g.roundRect) { g.beginPath(); g.roundRect(-8, crouch ? -2 : -8, 16, bodyH, 4); g.fill(); }
+    else g.fillRect(-8, crouch ? -2 : -8, 16, bodyH);
+    if (opt.guard) {
+        g.fillStyle = "#111827"; g.fillRect(-8, crouch ? -2 : -8, 16, 4);
+        g.fillStyle = "#facc15"; g.fillRect(-3, crouch ? 4 : -2, 6, 3);
+    }
+    g.strokeStyle = opt.skin || "#e2b58f"; g.lineWidth = 3.5;
+    g.beginPath(); g.moveTo(-8, 0); g.lineTo(-12, 6 + swing * 0.2); g.stroke();
+    g.beginPath(); g.moveTo(8, 0); g.lineTo(opt.guard ? 16 : 12, opt.guard ? 2 : 6 - swing * 0.2); g.stroke();
+    if (opt.guard) {
+        g.strokeStyle = "#78716c"; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(16, 2); g.lineTo(22, 6); g.stroke();
+    }
+    g.fillStyle = opt.skin || "#e2b58f";
+    g.beginPath(); g.arc(0, crouch ? -8 : -14, 6.2, 0, Math.PI * 2); g.fill();
+    if (opt.guard) {
+        g.fillStyle = "#1e293b";
+        g.beginPath(); g.arc(0, crouch ? -10 : -16, 6.4, Math.PI, 0); g.fill();
+        g.fillRect(-6.4, crouch ? -10 : -16, 12.8, 3);
+    }
+    if (opt.name) {
+        g.rotate(-ang);
+        g.fillStyle = "#fff"; g.font = "bold 11px 'Segoe UI', sans-serif"; g.textAlign = "center";
+        g.fillText(opt.name, 0, crouch ? -20 : -24);
+    }
+    g.restore();
+}
+
+
 // ===================================================================
-//  OYUN 1: HAPİSHANEDEN KAÇIŞ  (2D, co-op, 2-4 kişi)
+//  OYUN 1: HAPİSHANEDEN KAÇIŞ  (Prison Life tarzı, 2-4 kişi)
+//  Loot topla, TAB ile craft, 5 kaçış yolu. Gardiyanlar host'ta.
 // ===================================================================
 const PRISON_MAP = [
-    "########################################",
-    "#...#...#...#...#####..................#",
-    "#.1.#.2.#.3.#.4.#####...............k..#",
-    "#...#...#...#...#####..................#",
-    "##c###c###c###c##############..#########",
-    "#......................................#",
-    "#......................................#",
-    "######..############..############..####",
-    "#............###...........###.........#",
-    "#.k..#.......###........a..###...#.....#",
-    "#........#...###..#........###......#..#",
-    "#............###...........###.........#",
-    "###..###############################..##",
-    "#......................................#",
-    "#......................................#",
-    "######..---------------+AA----------XX---",
-    "#..............###.............##......#",
-    "#..............###.............##......#",
-    "#...##.........###....#........##......#",
-    "#..............###....#........##......#",
-    "#.........##...###........#....##.EEEE.#",
-    "#..............###..........k..##.EEEE.#",
-    "#..............###.............##.EEEE.#",
-    "########################################"
+    "##############################################",
+    "#...#...#...#...#####..........L.............#",
+    "#.1.#.2.#.3.#.4.#####........................#",
+    "#...#...#...#...#####........................#",
+    "##c###c###c###c##############..###############",
+    "#............................................#",
+    "#.....................L......................#",
+    "######..############..############..##########",
+    "#............###...........###...............#",
+    "#......#.....###........a..###.....#.........#",
+    "#............###...........###...............#",
+    "###..################################..#######",
+    "#..................L.........................#",
+    "#............................................#",
+    "######..##############AA##########XX##########",
+    "#...............###.............##...........#",
+    "#...............###.............##......EEEE.#",
+    "#...##..........###....#........##......EEEE.#",
+    "#.........##....###........#....##......EEEE.#",
+    "#...............###.............##...........#",
+    "##################WW######VV######UU##########",
+    "#....FFFFFFFF................................#",
+    "#............................................#",
+    "#......................L.....................#",
+    "##############################################"
 ];
-
 const PRISON_GUARDS = [
-    { wp: [[3, 5], [20, 6], [36, 5], [34, 9], [31, 10], [34, 9]] },
-    { wp: [[2, 13], [8, 19], [12, 21], [8, 19], [20, 14], [37, 14], [3, 14]] },
-    { wp: [[22, 2], [36, 2]] },
+    { wp: [[4, 5], [22, 6], [40, 5], [38, 9], [22, 6]] },
+    { wp: [[3, 12], [10, 18], [22, 13], [40, 13], [8, 13]] },
+    { wp: [[24, 2], [40, 2], [40, 8], [24, 2]] },
+    { wp: [[8, 21], [22, 22], [38, 21], [22, 22]] },
+];
+const MATS = [
+    { id: "metal", name: "Metal", ico: "🔩" },
+    { id: "wood", name: "Tahta", ico: "🪵" },
+    { id: "plastic", name: "Plastik", ico: "🧴" },
+    { id: "cloth", name: "Kumaş", ico: "🧵" },
+    { id: "wire", name: "Tel", ico: "〰️" },
+];
+const RECIPES = [
+    { id: "cutters", name: "Tel Makas", ico: "✂️", need: { metal: 2, wire: 1 }, use: "Avlu teli" },
+    { id: "hammer", name: "Çekiç", ico: "🔨", need: { metal: 2, wood: 1 }, use: "Zayıf duvar" },
+    { id: "shovel", name: "Kürek", ico: "⛏️", need: { metal: 1, wood: 2 }, use: "Tünel" },
+    { id: "driver", name: "Tornavida", ico: "🪛", need: { metal: 1, plastic: 1 }, use: "Havalandırma" },
+    { id: "card", name: "Sahte Kart", ico: "💳", need: { plastic: 2, cloth: 1 }, use: "Ana kapı" },
+];
+const ESCAPES = [
+    { ch: "F", item: "cutters", time: 3.2, name: "Avlu telini kes", open: "fence" },
+    { ch: "W", item: "hammer", time: 4.0, name: "Zayıf duvarı kır", open: "wall" },
+    { ch: "U", item: "shovel", time: 5.0, name: "Tünel kaz", open: "tunnel" },
+    { ch: "V", item: "driver", time: 3.5, name: "Havalandırmayı sök", open: "vent" },
+    { ch: "X", item: "card", time: 1.6, name: "Kartla kapıyı aç", open: "gate" },
 ];
 
 function startPrison(net) {
-    const T = 32, R = 9;
+    const T = 32, R = 10;
     const MW = PRISON_MAP[0].length, MH = PRISON_MAP.length;
-    const KEYS_NEEDED = 3;
     const VIS = 6 * T, CONE = 0.62, HEAR = 4 * T;
-    const WALK = 105, RUN = 165, GUARD_PATROL = 62, GUARD_CHASE = 122;
+    const WALK = 105, RUN = 165, CROUCH_SPD = 62, GUARD_PATROL = 62, GUARD_CHASE = 122;
     const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
     const cleanups = [];
@@ -668,6 +886,7 @@ function startPrison(net) {
     resize();
     on(window, "resize", resize);
 
+    // ---------- Haritayı çöz ----------
     const solid = new Uint8Array(MW * MH);
     const exitZone = new Uint8Array(MW * MH);
     const spawns = [], keys = [], doors = [], plates = [];
@@ -710,6 +929,7 @@ function startPrison(net) {
         return true;
     }
 
+    // ---------- Oyuncular ----------
     const myIdx = Math.max(0, order.indexOf(myId));
     const mySpawn = spawns[myIdx] || spawns[0];
     const me = { x: mySpawn.x * T + T / 2, y: mySpawn.y * T + T / 2, stamina: 100, tired: false, sprint: false, noisy: false, picking: false, escaped: false, safeUntil: 0 };
@@ -724,6 +944,7 @@ function startPrison(net) {
     const t0 = performance.now();
     let endTime = 0;
 
+    // ---------- Gardiyanlar ----------
     const guards = PRISON_GUARDS.map((def, i) => {
         const p = def.wp[0];
         const x = p[0] * T + T / 2, y = p[1] * T + T / 2;
@@ -768,7 +989,7 @@ function startPrison(net) {
         let target;
         if (gd.path.length > 0) target = gd.path[0];
         else {
-            if (tileIdx(gd.x, gd.y) !== tileIdx(tx, ty)) return true;
+            if (tileIdx(gd.x, gd.y) !== tileIdx(tx, ty)) return true;   // ulaşılamaz hedef
             if (Math.hypot(tx - gd.x, ty - gd.y) < 3) return true;
             target = { x: tx, y: ty };
         }
@@ -816,6 +1037,7 @@ function startPrison(net) {
         }
     }
 
+    // ---------- Kapılar ----------
     const grpUntil = { A: 0 };
     function updateDoors(now) {
         const alone = net.state().players.length < 2;
@@ -829,7 +1051,7 @@ function startPrison(net) {
         for (const d of doors) {
             if (d.kind === "plate") {
                 let open = alone || now < grpUntil[d.grp];
-                if (!open) {
+                if (!open) {   // kapının içinde duran biri varsa kapı kapanmasın
                     const cx = d.x * T + T / 2, cy = d.y * T + T / 2;
                     if (Math.abs(me.x - cx) < T && Math.abs(me.y - cy) < T) open = true;
                     for (const id in others) { const o = others[id]; if (Math.abs(o.x - cx) < T && Math.abs(o.y - cy) < T) open = true; }
@@ -839,6 +1061,7 @@ function startPrison(net) {
         }
     }
 
+    // ---------- Girdi ----------
     const keysDown = {};
     on(window, "keydown", (e) => {
         keysDown[e.code] = true;
@@ -908,6 +1131,7 @@ function startPrison(net) {
         }
     }
 
+    // ---------- Olaylar ----------
     function updateKeysHud() { $("pKeys").textContent = "🔑 " + keysGot + "/" + KEYS_NEEDED; }
     function takeKey(id, byId) {
         const k = keys.find((q) => q.id === id);
@@ -953,7 +1177,7 @@ function startPrison(net) {
         tone(523, 0.3, "triangle", 0.15); setTimeout(() => tone(784, 0.5, "triangle", 0.15), 250);
         showEnd(net, "KAÇTINIZ! 🎉", `Hepiniz hapishaneden kurtuldunuz.<br>Süre: <b>${fmtTime(t)}</b> • Yakalanma: <b>${c}</b>`, "#22c55e");
     }
-    function calmGuards() {
+    function calmGuards() {   // yakalama sonrası gardiyanlar devriyeye dönsün (hücre başında beklemesinler)
         for (const gd of guards) { if (gd.state !== 0) { gd.state = 0; gd.path = []; gd.pathKey = ""; } }
     }
     function caughtNow(now) {
@@ -971,6 +1195,7 @@ function startPrison(net) {
         for (const gd of guards) if (Math.hypot(gd.x - me.x, gd.y - me.y) < 15) { caughtNow(now); break; }
     }
 
+    // ---------- Çizim ----------
     let camX = me.x, camY = me.y;
 
     const miniBase = document.createElement("canvas");
@@ -1081,17 +1306,20 @@ function startPrison(net) {
         }
         for (const gd of guards) drawGuard(gd);
 
+        // karanlık: fener ışığı efekti
         g.setTransform(1, 0, 0, 1, 0, 0);
         const cx = vw / 2, cy = vh / 2;
         const gr = g.createRadialGradient(cx, cy, 60 * scale, cx, cy, 300 * scale);
         gr.addColorStop(0, "rgba(0,0,10,0)"); gr.addColorStop(1, "rgba(0,0,10,0.86)");
         g.fillStyle = gr; g.fillRect(0, 0, vw, vh);
 
+        // oyuncular her zaman görünür
         g.setTransform(scale, 0, 0, scale, Math.round(vw / 2 - camX * scale), Math.round(vh / 2 - camY * scale));
         for (const id in others) { const o = others[id]; drawPlayer(id, o.x, o.y, o.escaped, o.sprint, now, false); }
         drawPlayer(myId, me.x, me.y, me.escaped, me.noisy, now, true);
         g.setTransform(1, 0, 0, 1, 0, 0);
 
+        // mini harita
         mg.clearRect(0, 0, mini.width, mini.height);
         mg.drawImage(miniBase, 0, 0);
         for (const d of doors) { mg.fillStyle = d.open ? "#22c55e" : (d.kind === "cell" ? "#9ca3af" : d.kind === "plate" ? "#a855f7" : "#ef4444"); mg.fillRect(d.x * 4, d.y * 4, 4, 4); }
@@ -1119,6 +1347,7 @@ function startPrison(net) {
         }
     }
 
+    // ---------- Ana döngü ----------
     let last = performance.now(), lastSend = 0, lastGuardSend = 0;
     function frame(now) {
         if (dead) return;
@@ -1211,8 +1440,12 @@ function startPrison(net) {
     };
 }
 
+
 // ===================================================================
-//  OYUN 2: ÇATIŞMA (FPS)
+//  OYUN 2: ÇATIŞMA (FPS) - 1v1 / 1v2 / 2v2, raundlu, CS / Valorant tarzı
+//  - Harici kütüphane yok: kendi raycaster motoru (Wolfenstein tarzı).
+//  - Raund akışını HOST yönetir (freeze -> live -> roundend), can her oyuncuda kendinde tutulur.
+//  - Vuruşu atış yapan oyuncu hesaplar, hasarı kurbana gönderir.
 // ===================================================================
 const FPS_MAP = [
     "################################",
@@ -1256,7 +1489,7 @@ function startFps(net) {
     const myTeam = teamOf[myId];
     const teamCount = [0, 0];
     order.forEach((id) => teamCount[teamOf[id]]++);
-    const maxHp = teamCount[myTeam] < teamCount[1 - myTeam] ? 150 : 100;
+    const maxHp = teamCount[myTeam] < teamCount[1 - myTeam] ? 150 : 100;   // tek kişilik takım +50 can
     const TEAM_NAMES = ["MAVİ", "KIRMIZI"], TEAM_COL = ["#3b82f6", "#ef4444"], TEAM_LIGHT = ["#93c5fd", "#fca5a5"];
 
     const WEAPONS = [
@@ -1265,6 +1498,7 @@ function startFps(net) {
     ];
     const ROUND_TIME = 100, FREEZE_TIME = 4, END_TIME = 4, WIN_ROUNDS = 4;
 
+    // ---------- Harita ----------
     const MW = FPS_MAP[0].length, MH = FPS_MAP.length;
     const grid = new Uint8Array(MW * MH);
     const WALLCH = { "#": 1, "C": 2, "M": 3 };
@@ -1275,7 +1509,7 @@ function startFps(net) {
         else if (ch === "a") spawnRaw[0].push([x + 0.5, y + 0.5]);
         else if (ch === "b") spawnRaw[1].push([x + 0.5, y + 0.5]);
     }
-    function orderSpawns(list) {
+    function orderSpawns(list) {   // kuzey/güney kutularını sırayla dağıt
         const n = list.filter((p) => p[1] < MH / 2), s = list.filter((p) => p[1] >= MH / 2), out = [];
         for (let i = 0; i < Math.max(n.length, s.length); i++) { if (n[i]) out.push(n[i]); if (s[i]) out.push(s[i]); }
         return out;
@@ -1291,6 +1525,7 @@ function startFps(net) {
         return false;
     }
 
+    // ---------- Raycaster çekirdeği ----------
     const H = 360, VFOV = 60 * Math.PI / 180;
     let W = 640, planeDist = 300, planeLen = 1, zbuf = new Float32Array(W);
     function resize() {
@@ -1323,6 +1558,7 @@ function startFps(net) {
         RAY.side = side; RAY.type = type || 1;
     }
 
+    // ---------- Prosedürel dokular ve sprite'lar ----------
     let seed = 987654321;
     const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
     function mkTex(draw) {
@@ -1359,6 +1595,7 @@ function startFps(net) {
     const st = spriteTmp.getContext("2d");
     const SHADE = []; for (let i = 0; i <= 20; i++) SHADE.push(`rgba(0,0,0,${(i / 20).toFixed(2)})`);
 
+    // ---------- Oyun durumu ----------
     const self = { x: 2, y: 8, a: 0, pitch: 0, recoil: 0, hp: maxHp, alive: true, cur: 0, ammo: [WEAPONS[0].mag, WEAPONS[1].mag],
                    reloadEnd: 0, nextShot: 0, burst: 0, lastShotAt: 0, bobT: 0, bobAmp: 0, moving: false, kick: 0 };
     const others = {};
@@ -1382,6 +1619,7 @@ function startFps(net) {
         for (const id in others) others[id].first = true;
     }
 
+    // ---------- Raund makinesi (host yönetir, herkes kopyasını tutar) ----------
     function commit() { net.send({ k: "S", S }); afterState(); }
     function afterState() {
         if (S.phase === "freeze" && S.round !== localRound) { localRound = S.round; respawn(); tone(440, 0.15, "square", 0.08); }
@@ -1401,7 +1639,7 @@ function startFps(net) {
         }
         const cnt = [0, 0], alive = [0, 0];
         net.state().players.forEach((p) => { cnt[p.team]++; if (!deadSet.has(p.id)) alive[p.team]++; });
-        if (cnt[0] === 0 || cnt[1] === 0) {
+        if (cnt[0] === 0 || cnt[1] === 0) {   // bir takımın herkesi ayrıldı
             S.phase = "over"; S.matchWinner = cnt[0] === 0 && cnt[1] === 0 ? null : (cnt[0] > 0 ? 0 : 1);
             commit(); return;
         }
@@ -1427,6 +1665,7 @@ function startFps(net) {
             w === null ? "#94a3b8" : won ? "#22c55e" : "#ef4444");
     }
 
+    // ---------- Girdi ----------
     const lockEl = $("fLock");
     on(lockEl, "click", () => { cvs.requestPointerLock(); actx(); });
     on(cvs, "click", () => { if (!locked) cvs.requestPointerLock(); });
@@ -1451,6 +1690,7 @@ function startFps(net) {
     on(window, "keyup", (e) => { keys[e.code] = false; });
     on(window, "blur", () => { for (const k in keys) keys[k] = false; fireHeld = false; });
 
+    // ---------- Silah / atış ----------
     function startReload() {
         const w = WEAPONS[self.cur];
         if (!self.alive || self.reloadEnd || self.ammo[self.cur] >= w.mag) return;
@@ -1516,6 +1756,7 @@ function startFps(net) {
         if (self.ammo[self.cur] <= 0) startReload();
     }
 
+    // ---------- Hasar / ölüm ----------
     let dmgTimer = 0;
     function flashDamage() {
         const el = $("fDamage"); el.style.opacity = "1";
@@ -1545,6 +1786,7 @@ function startFps(net) {
         }
     }
 
+    // ---------- Hareket ----------
     function updateSelf(dt) {
         self.moving = false;
         let moved = false;
@@ -1569,6 +1811,7 @@ function startFps(net) {
         self.bobAmp += ((moved ? 3 : 0) - self.bobAmp) * Math.min(1, dt * 8);
     }
 
+    // ---------- Çizim ----------
     function drawSprites(cx, cy, dirX, dirY, horizon) {
         const list = [];
         for (const id in others) {
@@ -1695,6 +1938,7 @@ function startFps(net) {
         }
     }
 
+    // ---------- HUD ----------
     const cache = {};
     function setHtml(id, html) { if (cache[id] !== html) { cache[id] = html; $(id).innerHTML = html; } }
     function setText(id, t) { if (cache[id] !== t) { cache[id] = t; $(id).textContent = t; } }
@@ -1732,6 +1976,7 @@ function startFps(net) {
         $("xh").style.setProperty("--gap", (3 + currentSpread() * planeDist * (window.innerHeight / H) * 0.6) + "px");
     }
 
+    // ---------- Ana döngü ----------
     let last = performance.now(), lastSend = 0;
     function frame(now) {
         if (destroyed) return;
@@ -1750,6 +1995,7 @@ function startFps(net) {
             lastSend = now;
             net.send({ k: "p", x: Math.round(self.x * 100) / 100, y: Math.round(self.y * 100) / 100, a: Math.round(self.a * 100) / 100 });
         }
+        // kamera
         let cam;
         if (self.alive) cam = { x: self.x, y: self.y, a: self.a, p: self.pitch + self.recoil, bob: Math.sin(self.bobT) * self.bobAmp };
         else {
@@ -1805,122 +2051,6 @@ function startFps(net) {
     };
 }
 
-// ===================================================================
-//  SOHBET VE SESLİ SOHBET (WebRTC) SİSTEMİ
-// ===================================================================
-const chatMessages = $("chatMessages");
-const chatInput = $("chatInput");
-
-if ($("chatSendBtn")) $("chatSendBtn").onclick = sendChatMsg;
-if (chatInput) {
-    chatInput.addEventListener("keydown", (e) => { 
-        if (e.key === "Enter") sendChatMsg(); 
-        e.stopPropagation(); // Yazı yazarken oyun kontrollerinin (WASD) tetiklenmesini engeller
-    });
-}
-
-function sendChatMsg() {
-    const text = chatInput.value.trim();
-    if (text && wsReady) {
-        wsSend({ action: "chat", text: text });
-        chatInput.value = "";
-    }
-}
-
-function appendChat(from, text, team) {
-    const div = document.createElement("div");
-    div.className = "chat-msg";
-    let color = "#facc15"; 
-    if (team === 0) color = "#93c5fd";
-    if (team === 1) color = "#fca5a5";
-    
-    div.innerHTML = `<b style="color:${color}">${escHtml(from)}:</b> ${escHtml(text)}`;
-    chatMessages.appendChild(div);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// Sesli İletişim Değişkenleri (WebRTC P2P)
-let localAudioStream = null;
-const peers = {};
-
-if ($("micBtn")) {
-    $("micBtn").onclick = async () => {
-        const btn = $("micBtn");
-        if (!localAudioStream) {
-            try {
-                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                btn.classList.add("active");
-                btn.classList.remove("muted");
-                toast("Mikrofon açıldı.");
-                
-                if (roomState) {
-                    roomState.players.forEach(p => {
-                        if (p.id !== myId) createPeer(p.id, true);
-                    });
-                }
-            } catch (e) {
-                toast("Mikrofon izni reddedildi!");
-            }
-        } else {
-            const track = localAudioStream.getAudioTracks()[0];
-            track.enabled = !track.enabled;
-            btn.classList.toggle("active", track.enabled);
-            btn.classList.toggle("muted", !track.enabled);
-            toast(track.enabled ? "Mikrofon açıldı." : "Mikrofon susturuldu.");
-        }
-    };
-}
-
-function createPeer(peerId, isInitiator) {
-    if (peers[peerId]) return peers[peerId];
-    
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
-    peers[peerId] = pc;
-
-    if (localAudioStream) {
-        localAudioStream.getTracks().forEach(t => pc.addTrack(t, localAudioStream));
-    }
-
-    pc.onicecandidate = (e) => {
-        if (e.candidate) wsSend({ action: "signal", to: peerId, signal: { ice: e.candidate } });
-    };
-
-    pc.ontrack = (e) => {
-        let audio = document.getElementById("audio_" + peerId);
-        if (!audio) {
-            audio = document.createElement("audio");
-            audio.id = "audio_" + peerId;
-            audio.autoplay = true;
-            document.body.appendChild(audio);
-        }
-        audio.srcObject = e.streams[0];
-    };
-
-    if (isInitiator) {
-        pc.createOffer().then(offer => {
-            pc.setLocalDescription(offer);
-            wsSend({ action: "signal", to: peerId, signal: { sdp: offer } });
-        });
-    }
-    return pc;
-}
-
-async function handleSignal(msg) {
-    const peerId = msg.from;
-    const pc = peers[peerId] || createPeer(peerId, false);
-    const sig = msg.signal;
-
-    if (sig.sdp) {
-        await pc.setRemoteDescription(new RTCSessionDescription(sig.sdp));
-        if (sig.sdp.type === "offer") {
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            wsSend({ action: "signal", to: peerId, signal: { sdp: answer } });
-        }
-    } else if (sig.ice) {
-        await pc.addIceCandidate(new RTCIceCandidate(sig.ice));
-    }
-}
 
 connect();
 </script>
