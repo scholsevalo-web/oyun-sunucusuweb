@@ -115,22 +115,30 @@
         }
     };
 
-    function getName() {
-        const nameInput = document.getElementById("playerName").value.trim();
-        // Eğer oyuncu ismini boş bırakırsa ona rastgele sayı atar
-        return nameInput === "" ? "Oyuncu_" + Math.floor(Math.random() * 1000) : nameInput;
+    function requireName() {
+        const name = document.getElementById("playerName").value.trim();
+        if (!name) {
+            errorBox.style.display = "block";
+            errorBox.innerText = "Lütfen önce adını yaz!";
+            return null;
+        }
+        return name;
     }
 
     function createRoom() {
         errorBox.style.display = "none";
-        ws.send(JSON.stringify({ action: "create", name: getName() }));
+        const name = requireName();
+        if (!name) return;
+        ws.send(JSON.stringify({ action: "create", name: name }));
     }
 
     function joinRoom() {
         errorBox.style.display = "none";
+        const name = requireName();
+        if (!name) return;
         const code = document.getElementById("roomInput").value.trim().toUpperCase();
         if (code.length === 6) {
-            ws.send(JSON.stringify({ action: "join", code: code, name: getName() }));
+            ws.send(JSON.stringify({ action: "join", code: code, name: name }));
         } else {
             errorBox.style.display = "block";
             errorBox.innerText = "Lütfen 6 haneli oda kodunu eksiksiz gir!";
