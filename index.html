@@ -302,21 +302,22 @@ input:focus { outline: none; border-color: #38bdf8; }
 <!-- 3. OYUN EKRANI -->
 <div class="hidden" id="gameRoot">
 
-    <!-- HAPİSHANEDEN KAÇIŞ -->
+    <!-- HAPİSHANEDEN KAÇIŞ (%100 GERÇEK THREE.JS 3D) -->
     <div class="hidden" id="prisonGame">
         <canvas id="prisonCanvas" class="full"></canvas>
-        <div id="pHudTop">
+        <div id="p3dModeBadge" class="pill" style="position:absolute;top:14px;right:14px;color:#38bdf8;font-weight:bold;z-index:20;">🎮 3D ÜÇÜNCÜ ŞAHIS (A Way Out)</div>
+        <div id="pHudTop" style="z-index:20;">
             <div class="pill" id="pKeys">🔑 0/3</div>
             <div class="pill" id="pTime">00:00</div>
             <div class="pill" id="pCaught">🚨 0</div>
         </div>
-        <div id="pParty"></div>
-        <canvas id="prisonMini" width="160" height="96"></canvas>
-        <div id="pStamina"><div id="pStaminaFill"></div></div>
-        <div id="pHelp">WASD: yürü • Shift: koş (ses çıkarır!) • E: kilit aç (basılı tut)</div>
-        <div class="pill" id="pPrompt"></div>
-        <div id="pProgress"><div></div></div>
-        <div class="pill" id="pToast"></div>
+        <div id="pParty" style="z-index:20;"></div>
+        <canvas id="prisonMini" width="160" height="96" style="z-index:20;"></canvas>
+        <div id="pStamina" style="z-index:20;"><div id="pStaminaFill"></div></div>
+        <div id="pHelp" style="z-index:20;">WASD / Joystick: yürü • Shift: koş • C: çömel (gizlen) • E: kilit aç</div>
+        <div class="pill" id="pPrompt" style="z-index:20;"></div>
+        <div id="pProgress" style="z-index:20;"><div></div></div>
+        <div class="pill" id="pToast" style="z-index:20;"></div>
     </div>
 
     <!-- FPS -->
@@ -1143,57 +1144,178 @@ function startPrison(net) {
         }
     }
 
-    function drawCone(gd) {
-        const N = 16, pts = [[gd.x, gd.y]];
-        for (let i = 0; i <= N; i++) {
-            const a = gd.dir - CONE + 2 * CONE * i / N, cx = Math.cos(a), sy = Math.sin(a);
-            let d = 8;
-            while (d < VIS) {
-                if (solidAt(Math.floor((gd.x + cx * d) / T), Math.floor((gd.y + sy * d) / T))) break;
-                d += 8;
+    // ===================================================================
+    //  THREE.JS %100 GERÇEK 3D HAPİSHANE GÖRSELLEŞTİRME KATMANI
+    //  3. Şahıs (A Way Out) Kamerası, 3D Hücreler, Duvarlar ve Gardiyanlar
+    // ===================================================================
+    let p3dRenderer = null, p3dScene = null, p3dCamera = null;
+    let p3dPlayerMesh = null;
+    const p3dOtherMeshes = {};
+    const p3dGuardMeshes = [];
+    const p3dDoorMeshes = [];
+    const p3dKeyMeshes = [];
+
+    try {
+        p3dRenderer = new THREE.WebGLRenderer({ canvas: cvs, antialias: true });
+        p3dRenderer.setSize(window.innerWidth, window.innerHeight);
+        p3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+        p3dRenderer.shadowMap.enabled = true;
+
+        p3dScene = new THREE.Scene();
+        p3dScene.background = new THREE.Color(0x060913);
+        p3dScene.fog = new THREE.FogExp2(0x060913, 0.015);
+
+        p3dCamera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 300);
+
+        // Ortam Işıkları
+        const ambLight = new THREE.AmbientLight(0x334155, 0.7);
+        p3dScene.add(ambLight);
+
+        // Zemin ve Tavan
+        const floorGeo = new THREE.PlaneGeometry(MW * 3, MH * 3);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set((MW * 3) / 2, 0, (MH * 3) / 2);
+        floor.receiveShadow = true;
+        p3dScene.add(floor);
+
+        // 3D Duvarlar
+        const wallGeo = new THREE.BoxGeometry(3, 4.2, 3);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.2 });
+        for (let y = 0; y < MH; y++) {
+            for (let x = 0; x < MW; x++) {
+                if (solid[y * MW + x]) {
+                    const w = new THREE.Mesh(wallGeo, wallMat);
+                    w.position.set(x * 3 + 1.5, 2.1, y * 3 + 1.5);
+                    w.castShadow = true;
+                    w.receiveShadow = true;
+                    p3dScene.add(w);
+                }
             }
-            pts.push([gd.x + cx * d, gd.y + sy * d]);
         }
-        g.fillStyle = gd.state === 1 ? "rgba(239,68,68,0.30)" : gd.state === 2 ? "rgba(250,204,21,0.26)" : "rgba(250,250,190,0.17)";
-        g.beginPath();
-        pts.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])));
-        g.closePath(); g.fill();
+
+        // 3D Kapılar
+        const doorGeo = new THREE.BoxGeometry(2.8, 3.8, 0.4);
+        doors.forEach(d => {
+            const dMat = new THREE.MeshStandardMaterial({ color: d.kind === "cell" ? 0x64748b : 0xef4444, metalness: 0.8 });
+            const dm = new THREE.Mesh(doorGeo, dMat);
+            dm.position.set(d.x * 3 + 1.5, 1.9, d.y * 3 + 1.5);
+            p3dScene.add(dm);
+            p3dDoorMeshes.push({ d, mesh: dm });
+        });
+
+        // 3D Anahtarlar (Yerde parıldayan)
+        const keyGeo = new THREE.OctahedronGeometry(0.35);
+        const keyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 0.5 });
+        keys.forEach(k => {
+            const km = new THREE.Mesh(keyGeo, keyMat);
+            km.position.set(k.x * 3 + 1.5, 0.6, k.y * 3 + 1.5);
+            p3dScene.add(km);
+            p3dKeyMeshes.push({ k, mesh: km });
+        });
+
+        // 3D Oyuncu Karakteri (A Way Out tarzı tulumlu mahkûm)
+        const charGeo = new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.45, 1.2, 8, 16) : new THREE.CylinderGeometry(0.45, 0.45, 1.8, 12);
+        const charMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5 }); // Turuncu Cezaevi Tulumu
+        p3dPlayerMesh = new THREE.Mesh(charGeo, charMat);
+        p3dPlayerMesh.position.set(me.x / T * 3, 1.1, me.y / T * 3);
+        p3dPlayerMesh.castShadow = true;
+        p3dScene.add(p3dPlayerMesh);
+
+        // Karakterin üstüne tepe feneri / küçük ışık
+        const pLight = new THREE.PointLight(0xfef08a, 1.2, 12, 2);
+        pLight.position.set(0, 1.5, 0);
+        p3dPlayerMesh.add(pLight);
+
+        // 3D Gardiyanlar (Ellerinde gerçekçi 3D Projektör / Konik El Feneri)
+        guards.forEach(gd => {
+            const gGroup = new THREE.Group();
+            const gBodyMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a }); // Mavi Gardiyan Üniforması
+            const gBody = new THREE.Mesh(charGeo, gBodyMat);
+            gBody.position.y = 1.1;
+            gBody.castShadow = true;
+            gGroup.add(gBody);
+
+            // 3D Hacimsel Projektör / El Feneri Işığı
+            const spot = new THREE.SpotLight(0xfef08a, 2.5, 24, Math.PI / 5, 0.35);
+            spot.position.set(0, 1.2, 0.5);
+            spot.target.position.set(0, 0.2, 10);
+            gGroup.add(spot);
+            gGroup.add(spot.target);
+
+            p3dScene.add(gGroup);
+            p3dGuardMeshes.push({ gd, group: gGroup, spot });
+        });
+    } catch (e) {
+        console.warn("3D WebGL başlatılamadı, 2D yedek devrede:", e);
     }
-    function drawGuard(gd) {
-        g.fillStyle = gd.state === 1 ? "#dc2626" : gd.state === 2 ? "#d97706" : "#7c2d12";
-        g.beginPath(); g.arc(gd.x, gd.y, 11, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = "#0f172a"; g.lineWidth = 2; g.stroke();
-        g.strokeStyle = "#fecaca"; g.lineWidth = 3;
-        g.beginPath(); g.moveTo(gd.x, gd.y); g.lineTo(gd.x + Math.cos(gd.dir) * 14, gd.y + Math.sin(gd.dir) * 14); g.stroke();
 
-        // A Way Out Tarzı Üçgen Tespit Göstergesi (Triangle Detection Meter)
-        const susp = gd.suspicion || 0;
-        if (susp > 0) {
-            const hx = gd.x, hy = gd.y - 20;
-            // Dış Üçgen Çerçeve
-            g.save();
-            g.translate(hx, hy);
-            g.beginPath();
-            g.moveTo(0, -10);
-            g.lineTo(8, 6);
-            g.lineTo(-8, 6);
-            g.closePath();
-            g.strokeStyle = susp >= 100 ? "#ef4444" : "#facc15";
-            g.lineWidth = 2.5;
-            g.stroke();
+    function render3DView(now, dt) {
+        if (!p3dRenderer || !p3dScene) return;
 
-            // Doluluk Oranı (Aşağıdan yukarıya dolan üçgen)
-            if (susp > 5) {
-                g.clip();
-                const fillH = (susp / 100) * 18;
-                g.fillStyle = susp >= 100 ? "rgba(239,68,68,0.95)" : "rgba(250,204,21,0.85)";
-                g.fillRect(-10, 7 - fillH, 20, fillH);
+        // Oyuncu 3D Pozisyonu
+        const px = (me.x / T) * 3;
+        const pz = (me.y / T) * 3;
+        p3dPlayerMesh.position.set(px, 1.1, pz);
+
+        // 3. Şahıs Omuz / Takip Kamerası (A Way Out Açısı)
+        const targetCamX = px;
+        const targetCamY = 5.2;
+        const targetCamZ = pz + 6.5;
+        p3dCamera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), Math.min(1, dt * 6));
+        p3dCamera.lookAt(px, 1.2, pz - 2);
+
+        // Diğer Oyuncular
+        for (const id in others) {
+            const o = others[id];
+            if (!p3dOtherMeshes[id]) {
+                const oMesh = new THREE.Mesh(p3dPlayerMesh.geometry, new THREE.MeshStandardMaterial({ color: colorOf(id) }));
+                p3dScene.add(oMesh);
+                p3dOtherMeshes[id] = oMesh;
             }
-            g.restore();
+            p3dOtherMeshes[id].position.set((o.x / T) * 3, 1.1, (o.y / T) * 3);
+            p3dOtherMeshes[id].visible = !o.escaped;
         }
 
-        if (gd.state === 1 && susp >= 100) { g.fillStyle = "#fff"; g.font = "bold 20px sans-serif"; g.textAlign = "center"; g.fillText("!", gd.x, gd.y - 24); }
-        else if (gd.state === 2 && susp > 30) { g.fillStyle = "#facc15"; g.font = "bold 16px sans-serif"; g.textAlign = "center"; g.fillText("?", gd.x, gd.y - 24); }
+        // Kapılar & Açılma Animasyonları
+        p3dDoorMeshes.forEach(item => {
+            if (item.d.open) {
+                item.mesh.position.y = THREE.MathUtils.lerp(item.mesh.position.y, 6.0, dt * 4); // Yukarı çekilir
+            }
+        });
+
+        // Anahtarların Yerde Dönmesi
+        p3dKeyMeshes.forEach(item => {
+            if (item.k.got) {
+                item.mesh.visible = false;
+            } else {
+                item.mesh.rotation.y += dt * 3;
+                item.mesh.position.y = 0.6 + Math.sin(now * 0.004) * 0.15;
+            }
+        });
+
+        // 3D Gardiyan Devriyeleri ve Fener Renkleri
+        p3dGuardMeshes.forEach(item => {
+            const gx = (item.gd.x / T) * 3;
+            const gz = (item.gd.y / T) * 3;
+            item.group.position.set(gx, 0, gz);
+            item.group.rotation.y = -item.gd.dir + Math.PI / 2;
+
+            // Şüphe yükseldikçe fener rengi sarıdan kırmızıya döner
+            if (item.gd.suspicion >= 100) {
+                item.spot.color.setHex(0xef4444);
+                item.spot.intensity = 4.0;
+            } else if (item.gd.suspicion > 30) {
+                item.spot.color.setHex(0xfacc15);
+                item.spot.intensity = 3.0;
+            } else {
+                item.spot.color.setHex(0xfef08a);
+                item.spot.intensity = 2.0;
+            }
+        });
+
+        p3dRenderer.render(p3dScene, p3dCamera);
     }
     function drawPlayer(id, x, y, escaped, noisy, now, isMe) {
         g.globalAlpha = escaped ? 0.35 : (isMe && now < me.safeUntil && Math.floor(now / 150) % 2 ? 0.4 : 1);
@@ -1341,7 +1463,12 @@ function startPrison(net) {
                 net.send({ k: "p", x: Math.round(me.x), y: Math.round(me.y), s: me.noisy ? 1 : 0 });
             }
         }
-        draw(now, dt);
+        // Three.js %100 Gerçek 3D Render
+        if (p3dRenderer) {
+            render3DView(now, dt);
+        } else {
+            draw(now, dt);
+        }
         updateHud(dt);
     }
     raf = requestAnimationFrame(frame);
@@ -1393,6 +1520,7 @@ function startPrison(net) {
             cancelAnimationFrame(raf);
             cleanups.forEach((f) => f());
             clearTimeout(toastTimer);
+            if (p3dRenderer) p3dRenderer.dispose();
             $("prisonGame").classList.add("hidden");
             $("pToast").style.display = "none";
             $("pPrompt").style.display = "none";
