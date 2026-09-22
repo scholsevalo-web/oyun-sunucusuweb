@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Web Oyuncum</title>
+<!-- Three.js ve GLTF / GLB Loader: Gerçekçi 3D Grafikler ve Harici 3D Model Bağlantısı -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <style>
 * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
 html, body { background-color: #0f172a; color: #f8fafc; }
@@ -125,6 +128,57 @@ input:focus { outline: none; border-color: #38bdf8; }
 #fBanner span { font-size: 18px; color: #cbd5e1; font-weight: 700; }
 #fDamage { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(127,29,29,0) 40%, rgba(220,38,38,0.65) 100%); transition: opacity 0.35s; }
 #fSpec { position: absolute; bottom: 70px; left: 0; right: 0; text-align: center; pointer-events: none; color: #fca5a5; font-weight: 700; text-shadow: 0 1px 4px #000; }
+
+/* 3D KOVALAMACA CSS */
+#chaseGame { position: absolute; inset: 0; overflow: hidden; background: #020617; }
+#cHudTop { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; z-index: 20; }
+#cTimer { font-size: 20px; color: #facc15; font-weight: 900; }
+#cDistance { font-size: 14px; color: #38bdf8; }
+#cRoleBadge { background: #0369a1; color: #fff; font-weight: 900; letter-spacing: 1px; }
+#cStatsLeft { position: absolute; bottom: 20px; left: 20px; z-index: 20; min-width: 180px; }
+#cGunnerInfo { position: absolute; bottom: 20px; right: 20px; z-index: 20; text-align: right; min-width: 140px; }
+#cDamage { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(239,68,68,0) 45%, rgba(220,38,38,0.7) 100%); transition: opacity 0.25s; z-index: 15; }
+#cNitroFx { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(56,189,248,0) 40%, rgba(56,189,248,0.4) 100%); mix-blend-mode: screen; transition: opacity 0.3s; z-index: 14; }
+#cXh { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; transform: translate(-50%, -50%); pointer-events: none; border: 2px solid rgba(250,204,21,0.85); border-radius: 50%; z-index: 25; display: none; }
+#cXh::after { content: ''; position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: #facc15; border-radius: 50%; transform: translate(-50%, -50%); }
+#cHit { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 32px; font-weight: 900; color: #ef4444; opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 26; text-shadow: 0 0 6px #000; }
+#cBanner { position: absolute; top: 22%; left: 0; right: 0; text-align: center; pointer-events: none; text-shadow: 0 2px 10px #000; z-index: 22; }
+#cBanner b { display: block; font-size: 38px; font-weight: 900; letter-spacing: 2px; }
+#cBanner span { font-size: 16px; color: #cbd5e1; font-weight: 700; }
+#cTeamFeed { position: absolute; top: 16px; right: 16px; text-align: right; pointer-events: none; z-index: 20; display: flex; flex-direction: column; gap: 4px; }
+#cTeamFeed div { background: rgba(15,23,42,0.85); border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: #f8fafc; border-left: 3px solid #38bdf8; }
+#cModelUploadBtn { position: absolute; top: 68px; left: 16px; background: rgba(15,23,42,0.85); border: 1px solid #475569; border-radius: 8px; color: #cbd5e1; font-size: 11px; font-weight: 700; padding: 6px 10px; cursor: pointer; z-index: 30; transition: 0.2s; }
+#cModelUploadBtn:hover { border-color: #38bdf8; color: #38bdf8; background: #1e293b; }
+
+/* OYLAMA EKRANI */
+#routeVoteModal { position: fixed; inset: 0; background: rgba(2,6,23,0.94); z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.routeVoteBox { width: min(860px, 94vw); background: linear-gradient(135deg,#0f172a,#020617); border: 2px solid #334155; border-radius: 16px; padding: clamp(20px,4vw,36px); box-shadow: 0 25px 60px rgba(0,0,0,0.85); text-align: center; }
+.routeVoteTitle { font-size: clamp(22px, 3.5vw, 36px); font-weight: 900; color: #38bdf8; letter-spacing: 1px; margin-bottom: 6px; }
+.routeVoteSub { font-size: 14px; color: #94a3b8; margin-bottom: 24px; line-height: 1.5; }
+.routeGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.routeCard { background: #1e293b; border: 2px solid #475569; border-radius: 12px; padding: 20px; text-align: left; cursor: pointer; transition: 0.2s; position: relative; }
+.routeCard:hover { border-color: #38bdf8; transform: translateY(-2px); }
+.routeCard.voted { border-color: #22c55e; background: rgba(34,197,94,0.12); box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
+.routeCard h3 { font-size: 17px; color: #f8fafc; margin-bottom: 6px; font-weight: 800; }
+.routeCard .rMeta { font-size: 12px; color: #facc15; font-weight: 700; margin-bottom: 10px; }
+.routeCard p { font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 0 0 12px 0; }
+.routeVotesTag { font-size: 12px; font-weight: 800; background: #0f172a; padding: 4px 10px; border-radius: 6px; display: inline-block; border: 1px solid #334155; color: #38bdf8; }
+.routeStatus { font-size: 13px; color: #facc15; font-weight: 700; margin-top: 14px; }
+
+/* Mobil Kovalamaca Kontrolleri */
+#cMobileControls { position: fixed; inset: auto 12px 14px 12px; z-index: 99; display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+.cMobileDrivePad { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(2, 52px); gap: 6px; pointer-events: auto; }
+.cMobileDrivePad button, .cMobileFirePad button { border: 1px solid #475569; background: rgba(15,23,42,0.85); color: #fff; border-radius: 12px; font-weight: 900; font-size: 13px; touch-action: none; cursor: pointer; }
+.cMobileDrivePad button:active, .cMobileFirePad button:active { background: #38bdf8; color: #020617; }
+#cMobGas { grid-column: 2; grid-row: 1; }
+#cMobLeft { grid-column: 1; grid-row: 2; }
+#cMobBrake { grid-column: 2; grid-row: 2; }
+#cMobRight { grid-column: 3; grid-row: 2; }
+#cMobNitro { grid-column: 3; grid-row: 1; background: rgba(234,88,12,0.8); border-color: #f97316; }
+.cMobileFirePad { display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
+#cMobFire { width: 90px; height: 60px; font-size: 14px; background: rgba(220,38,38,0.85); border-color: #ef4444; }
+#cMobReload { width: 90px; height: 44px; font-size: 12px; }
+@media (pointer: fine) { #cMobileControls { display: none !important; } }
 
 /* ---- SOHBET VE SESLİ İLETİŞİM KUTUSU ---- */
 #chatContainer {
@@ -283,6 +337,54 @@ input:focus { outline: none; border-color: #38bdf8; }
             <p>Oynamak için tıkla.<br>
             <b>WASD</b> hareket • <b>Fare</b> nişan • <b>Sol tık</b> ateş • <b>R</b> şarjör • <b>1/2</b> silah • <b>Shift</b> yavaş yürü (daha isabetli)<br>
             Kafadan vuruş çok daha fazla hasar verir. Esc ile fareyi serbest bırakırsın.</p>
+        </div>
+    </div>
+
+    <!-- 3D POLİS KOVALAMACASI & ÇATIŞMA -->
+    <div class="hidden" id="chaseGame">
+        <canvas id="chaseCanvas" class="full"></canvas>
+        <div id="cDamage"></div>
+        <div id="cNitroFx"></div>
+        <div id="cXh"></div>
+        <div id="cHit">✕</div>
+
+        <div id="cHudTop">
+            <div class="pill" id="cTimer">⏱ 03:00</div>
+            <div class="pill" id="cDistance">🛣 0 / 7200 M</div>
+            <div class="pill" id="cRoleBadge">SÜRÜCÜ</div>
+        </div>
+
+        <div id="cStatsLeft" class="pill">
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:3px;">ARAÇ ZIRHI</div>
+            <div style="font-size:22px;color:#38bdf8;font-weight:900;" id="cCarHpText">100%</div>
+            <div id="cCarHpBar" style="height:6px;width:160px;background:#334155;border-radius:4px;overflow:hidden;margin-top:4px;">
+                <div style="height:100%;width:100%;background:#22c55e;"></div>
+            </div>
+            <div style="font-size:11px;color:#cbd5e1;margin-top:8px;">HIZ: <b id="cSpeedText">135</b> KM/S</div>
+        </div>
+
+        <div id="cGunnerInfo" class="pill">
+            <div style="font-size:12px;color:#94a3b8;">NİŞANCI KULESİ</div>
+            <b style="font-size:26px;color:#facc15;" id="cAmmoText">30</b><span style="font-size:13px;color:#cbd5e1;"> / ∞</span>
+            <small style="display:block;font-size:11px;color:#94a3b8;" id="cGunStatus">M249 Ağır Makineli</small>
+        </div>
+
+        <div id="cTeamFeed"></div>
+        <div id="cBanner"></div>
+        <div id="cModelUploadBtn" title="Harici .glb / .gltf 3D Model Bağla">📦 3D Model (.glb/.gltf) Yükle<input type="file" id="cModelInput" accept=".glb,.gltf" style="display:none;"></div>
+
+        <!-- Mobil Kontroller: Sürüş & Ateş Tuşları -->
+        <div id="cMobileControls">
+            <div class="cMobileDrivePad">
+                <button id="cMobLeft">◀ SOL</button>
+                <button id="cMobRight">SAĞ ▶</button>
+                <button id="cMobGas">▲ GAZ</button>
+                <button id="cMobBrake">▼ FREN</button>
+            </div>
+            <div class="cMobileFirePad">
+                <button id="cMobFire">🔫 ATEŞ ET</button>
+                <button id="cMobReload">🔄 ŞARJÖR</button>
+            </div>
         </div>
     </div>
 
@@ -515,6 +617,8 @@ function enterGame(s) {
     $("endScreen").classList.add("hidden");
     $("prisonGame").classList.add("hidden");
     $("fpsGame").classList.add("hidden");
+    const chaseEl = $("chaseGame");
+    if (chaseEl) chaseEl.classList.add("hidden");
     const net = {
         myId: () => myId,
         state: () => roomState,
@@ -787,6 +891,8 @@ function startPrison(net) {
         const ents = [{ id: myId, x: me.x, y: me.y, noisy: me.noisy, escaped: me.escaped, safe: me.safeUntil }];
         for (const id in others) { const o = others[id]; ents.push({ id, x: o.x, y: o.y, noisy: o.sprint, escaped: o.escaped, safe: o.safeUntil }); }
         for (const gd of guards) {
+            if (gd.suspicion === undefined) gd.suspicion = 0; // A Way Out Tarzı Şüphe / Fark Edilme Göstergesi
+
             let seen = null, seenD = 1e9, heard = null, heardD = 1e9;
             for (const e of ents) {
                 if (e.escaped || now < e.safe) continue;
@@ -795,22 +901,40 @@ function startPrison(net) {
                 if ((inCone || d < T * 1.1) && los(gd.x, gd.y, e.x, e.y)) { if (d < seenD) { seenD = d; seen = e; } }
                 else if (e.noisy && d < HEAR && d < heardD) { heardD = d; heard = e; }
             }
+
             if (seen) {
-                if (gd.state !== 1) onGuardAlert(gd);
-                gd.state = 1; gd.lastSeen = now; gd.tx = seen.x; gd.ty = seen.y;
-            } else if (gd.state === 1 && now - gd.lastSeen > 3500) {
-                gd.state = 0; gd.path = []; gd.pathKey = "";
-            } else if (heard && gd.state === 0) {
-                gd.state = 2; gd.tx = heard.x; gd.ty = heard.y; gd.wait = 0; gd.pathKey = "";
+                // Görüş açısında kalındıkça üçgen gösterge dolar (0'dan 100'e)
+                const fillRate = (seenD < T * 2.5) ? 140 : 85;
+                gd.suspicion = Math.min(100, gd.suspicion + dt * fillRate);
+
+                if (gd.suspicion >= 100) {
+                    if (gd.state !== 1) onGuardAlert(gd);
+                    gd.state = 1; gd.lastSeen = now; gd.tx = seen.x; gd.ty = seen.y;
+                } else if (gd.suspicion > 30) {
+                    gd.state = 2; // Şüphelenme aşaması (Sarı Üçgen)
+                    gd.tx = seen.x; gd.ty = seen.y;
+                }
+            } else {
+                // Görüşten çıkınca şüphe yavaşça söner
+                gd.suspicion = Math.max(0, gd.suspicion - dt * 45);
+                if (gd.suspicion === 0 && gd.state === 1 && now - gd.lastSeen > 3500) {
+                    gd.state = 0; gd.path = []; gd.pathKey = "";
+                }
             }
+
+            if (heard && gd.state === 0 && gd.suspicion < 30) {
+                gd.state = 2; gd.tx = heard.x; gd.ty = heard.y; gd.wait = 0; gd.pathKey = "";
+                gd.suspicion = Math.max(gd.suspicion, 40);
+            }
+
             let speed, tx, ty;
             if (gd.state === 1) { speed = GUARD_CHASE; tx = gd.tx; ty = gd.ty; }
-            else if (gd.state === 2) { speed = GUARD_PATROL * 1.4; tx = gd.tx; ty = gd.ty; }
+            else if (gd.state === 2) { speed = GUARD_PATROL * 1.3; tx = gd.tx; ty = gd.ty; }
             else { speed = GUARD_PATROL; const wp = gd.wp[gd.wpIdx]; tx = wp[0] * T + T / 2; ty = wp[1] * T + T / 2; }
             const arrived = stepToward(gd, tx, ty, speed, dt, now);
             if (arrived) {
                 if (gd.state === 0) gd.wpIdx = (gd.wpIdx + 1) % gd.wp.length;
-                else if (gd.state === 2) { gd.wait += dt; gd.dir += dt * 2; if (gd.wait > 2.2) gd.state = 0; }
+                else if (gd.state === 2) { gd.wait += dt; gd.dir += dt * 2; if (gd.wait > 2.2) { gd.state = 0; gd.suspicion = 0; } }
                 else gd.dir += dt * 2.2;
             }
         }
@@ -846,6 +970,33 @@ function startPrison(net) {
     });
     on(window, "keyup", (e) => { keysDown[e.code] = false; });
     on(window, "blur", () => { for (const k in keysDown) keysDown[k] = false; });
+
+    // Mobil için klavye yerine ekran üstü yön ve etkileşim tuşları.
+    let mobileControls = null;
+    if (matchMedia("(pointer: coarse)").matches) {
+        mobileControls = document.createElement("div");
+        mobileControls.id = "pMobileControls";
+        mobileControls.innerHTML = `<div class="pJoy"><i></i></div><div class="pActions"><button class="pRun" data-k="ShiftLeft">KOŞ</button><button class="pJump" data-k="Space">ZIPLA</button><button class="pUse" data-k="KeyE">KULLAN</button></div>`;
+        document.body.appendChild(mobileControls);
+        const joy = mobileControls.querySelector(".pJoy"), knob = joy.querySelector("i");
+        let joyId = null;
+        const clearJoy = () => { ["KeyW", "KeyA", "KeyS", "KeyD"].forEach(k => keysDown[k] = false); knob.style.transform = "translate(-50%,-50%)"; };
+        const moveJoy = (e) => {
+            const r = joy.getBoundingClientRect(), x = e.clientX - r.left - r.width / 2, y = e.clientY - r.top - r.height / 2;
+            const d = Math.max(1, Math.hypot(x, y)), lim = r.width * .3, nx = x / d * Math.min(d, lim), ny = y / d * Math.min(d, lim);
+            knob.style.transform = `translate(calc(-50% + ${nx}px),calc(-50% + ${ny}px))`;
+            keysDown.KeyW = y < -14; keysDown.KeyS = y > 14; keysDown.KeyA = x < -14; keysDown.KeyD = x > 14;
+        };
+        on(joy, "pointerdown", (e) => { e.preventDefault(); joyId = e.pointerId; joy.setPointerCapture(joyId); moveJoy(e); });
+        on(joy, "pointermove", (e) => { if (e.pointerId === joyId) moveJoy(e); });
+        on(joy, "pointerup", (e) => { if (e.pointerId === joyId) { joyId = null; clearJoy(); } });
+        on(joy, "pointercancel", clearJoy);
+        mobileControls.querySelectorAll("button[data-k]").forEach((button) => {
+            const down = (e) => { e.preventDefault(); keysDown[button.dataset.k] = true; };
+            const up = (e) => { e.preventDefault(); keysDown[button.dataset.k] = false; };
+            on(button, "pointerdown", down); on(button, "pointerup", up); on(button, "pointercancel", up); on(button, "pointerleave", up);
+        });
+    }
 
     let toastTimer = 0;
     function pToast(msg) {
@@ -956,19 +1107,26 @@ function startPrison(net) {
     function calmGuards() {
         for (const gd of guards) { if (gd.state !== 0) { gd.state = 0; gd.path = []; gd.pathKey = ""; } }
     }
-    function caughtNow(now) {
-        if (net.isHost()) calmGuards();
-        totalCaught++; myCaught++;
+    function resetToCheckpoint() {
+        totalCaught++;
         me.x = mySpawn.x * T + T / 2; me.y = mySpawn.y * T + T / 2;
-        me.safeUntil = now + 3000; me.stamina = 100; me.tired = false;
+        me.safeUntil = performance.now() + 2000; me.stamina = 100; me.tired = false;
         camX = me.x; camY = me.y;
-        net.send({ k: "caught" });
-        pToast("YAKALANDIN! Hücrene geri götürüldün.");
-        tone(120, 0.5, "sawtooth", 0.2, 40);
+        for (const gd of guards) { gd.state = 0; gd.suspicion = 0; gd.path = []; }
+        net.send({ k: "checkpoint_reset" });
+        pToast("FARK EDİLDİNİZ! Bölüm başa sarıldı — sessiz ilerleyin!");
+        tone(120, 0.4, "sawtooth", 0.2, 40);
     }
+
     function checkCaught(now) {
         if (me.escaped || now < me.safeUntil) return;
-        for (const gd of guards) if (Math.hypot(gd.x - me.x, gd.y - me.y) < 15) { caughtNow(now); break; }
+        for (const gd of guards) {
+            // Tamamen kırmızı üçgen olup seni kovalarken temas ederse görevi baştan başlat
+            if (gd.state === 1 && gd.suspicion >= 100 && Math.hypot(gd.x - me.x, gd.y - me.y) < 18) {
+                resetToCheckpoint();
+                break;
+            }
+        }
     }
 
     let camX = me.x, camY = me.y;
@@ -1007,8 +1165,35 @@ function startPrison(net) {
         g.strokeStyle = "#0f172a"; g.lineWidth = 2; g.stroke();
         g.strokeStyle = "#fecaca"; g.lineWidth = 3;
         g.beginPath(); g.moveTo(gd.x, gd.y); g.lineTo(gd.x + Math.cos(gd.dir) * 14, gd.y + Math.sin(gd.dir) * 14); g.stroke();
-        if (gd.state === 1) { g.fillStyle = "#fff"; g.font = "bold 20px sans-serif"; g.textAlign = "center"; g.fillText("!", gd.x, gd.y - 16); }
-        else if (gd.state === 2) { g.fillStyle = "#facc15"; g.font = "bold 18px sans-serif"; g.textAlign = "center"; g.fillText("?", gd.x, gd.y - 16); }
+
+        // A Way Out Tarzı Üçgen Tespit Göstergesi (Triangle Detection Meter)
+        const susp = gd.suspicion || 0;
+        if (susp > 0) {
+            const hx = gd.x, hy = gd.y - 20;
+            // Dış Üçgen Çerçeve
+            g.save();
+            g.translate(hx, hy);
+            g.beginPath();
+            g.moveTo(0, -10);
+            g.lineTo(8, 6);
+            g.lineTo(-8, 6);
+            g.closePath();
+            g.strokeStyle = susp >= 100 ? "#ef4444" : "#facc15";
+            g.lineWidth = 2.5;
+            g.stroke();
+
+            // Doluluk Oranı (Aşağıdan yukarıya dolan üçgen)
+            if (susp > 5) {
+                g.clip();
+                const fillH = (susp / 100) * 18;
+                g.fillStyle = susp >= 100 ? "rgba(239,68,68,0.95)" : "rgba(250,204,21,0.85)";
+                g.fillRect(-10, 7 - fillH, 20, fillH);
+            }
+            g.restore();
+        }
+
+        if (gd.state === 1 && susp >= 100) { g.fillStyle = "#fff"; g.font = "bold 20px sans-serif"; g.textAlign = "center"; g.fillText("!", gd.x, gd.y - 24); }
+        else if (gd.state === 2 && susp > 30) { g.fillStyle = "#facc15"; g.font = "bold 16px sans-serif"; g.textAlign = "center"; g.fillText("?", gd.x, gd.y - 24); }
     }
     function drawPlayer(id, x, y, escaped, noisy, now, isMe) {
         g.globalAlpha = escaped ? 0.35 : (isMe && now < me.safeUntil && Math.floor(now / 150) % 2 ? 0.4 : 1);
@@ -1119,12 +1304,15 @@ function startPrison(net) {
         }
     }
 
+    // Yakınlık ses sistemi bu haritanın duvarlarını kullanır.
+    window.pcVoiceMap = { solid, MW, MH, T };
     let last = performance.now(), lastSend = 0, lastGuardSend = 0;
     function frame(now) {
         if (dead) return;
         raf = requestAnimationFrame(frame);
         const dt = Math.min(0.05, (now - last) / 1000); last = now;
         if (!ended) {
+            window.pcVoiceLocal = { x: me.x / T, y: me.y / T };
             updateDoors(now);
             updateInteract(dt);
             updateMe(dt);
@@ -1167,6 +1355,8 @@ function startPrison(net) {
                 case "p": {
                     const o = others[from]; if (!o) break;
                     o.tx = d.x; o.ty = d.y; o.sprint = !!d.s;
+                    window.pcVoiceRemote = window.pcVoiceRemote || {};
+                    window.pcVoiceRemote[from] = { x: d.x / T, y: d.y / T };
                     break;
                 }
                 case "g":
@@ -1207,6 +1397,7 @@ function startPrison(net) {
             $("pToast").style.display = "none";
             $("pPrompt").style.display = "none";
             $("pProgress").style.display = "none";
+            if (mobileControls) mobileControls.remove();
         },
     };
 }
@@ -1842,6 +2033,29 @@ function appendChat(from, text, team) {
 // Sesli İletişim Değişkenleri (WebRTC P2P)
 let localAudioStream = null;
 const peers = {};
+window.pcVoiceRemote = window.pcVoiceRemote || {};
+
+// Yakındaki oyuncu net duyulur; uzaklaştıkça ses azalır. Arada duvar varsa
+// örnekleme sistemi sesi yaklaşık %82 kısar.
+function pcVoiceBlocked(a, b) {
+    const map = window.pcVoiceMap;
+    if (!map || !a || !b) return false;
+    const distance = Math.hypot(b.x - a.x, b.y - a.y);
+    const steps = Math.max(1, Math.ceil(distance * 4));
+    for (let i = 1; i < steps; i++) {
+        const x = Math.floor(a.x + (b.x - a.x) * i / steps), y = Math.floor(a.y + (b.y - a.y) * i / steps);
+        if (x < 0 || y < 0 || x >= map.MW || y >= map.MH || map.solid[y * map.MW + x]) return true;
+    }
+    return false;
+}
+function pcSetVoiceVolume(audio, peerId) {
+    const me = window.pcVoiceLocal, other = window.pcVoiceRemote && window.pcVoiceRemote[peerId];
+    if (!me || !other) return;
+    const dist = Math.hypot(me.x - other.x, me.y - other.y);
+    const near = Math.max(0, Math.min(1, 1 - dist / 14));
+    const target = Math.max(0.015, near * near * (pcVoiceBlocked(me, other) ? 0.18 : 1));
+    audio.volume += (target - audio.volume) * 0.32;
+}
 
 if ($("micBtn")) {
     $("micBtn").onclick = async () => {
@@ -1894,6 +2108,7 @@ function createPeer(peerId, isInitiator) {
             document.body.appendChild(audio);
         }
         audio.srcObject = e.streams[0];
+        if (!audio._pcVoiceTimer) audio._pcVoiceTimer = setInterval(() => pcSetVoiceVolume(audio, peerId), 150);
     };
 
     if (isInitiator) {
@@ -1921,6 +2136,1071 @@ async function handleSignal(msg) {
         await pc.addIceCandidate(new RTCIceCandidate(sig.ice));
     }
 }
+
+// ===================================================================
+// SON ÇIKIŞ KAMPANYA EKİ — yalnızca hapis oyunu JS başlangıcı
+// ===================================================================
+const PC_CHARS = [
+    { id: "aras", name: "Aras Kaya", role: "Mekanik", color: "#f97316", story: "Küçük kardeşi Efe'yi korumak için suçu üstlendi. On yıldır Efe'nin öldüğüne inanıyor; aslında Vural'ın elindeki sır bununla ilgili." },
+    { id: "derya", name: "Derya Akın", role: "Gazeteci", color: "#38bdf8", story: "Babası Vural'ın ilk kurbanlarından biriydi. Gerçeği ortaya çıkarmak için haberi değil, bütün hayatını kaybetmeyi göze aldı." },
+    { id: "mert", name: "Mert Uzun", role: "Sağlık görevlisi", color: "#4ade80", story: "Bir mahkûmu kurtarmak için emirleri çiğnedi. Ailesinin güvenliği için Vural'a borçlandı; ihanet gibi görünen şeyin altında korku var." },
+    { id: "sera", name: "Sera Demir", role: "Kurye", color: "#f472b6", story: "Kardeşini sokaktan almak için her işi yaptı. Onu korumak adına ekibe söylemediği bir anlaşma yaptı; en ağır sırrı o taşıyor." },
+];
+let pcChar = null, pcNet = null, pcLayer = null;
+const pcOriginalStartPrison = startPrison;
+
+function pcData(add) {
+    let old = {}; try { old = JSON.parse(localStorage.getItem("sonCikisCampaign") || "{}"); } catch (_) {}
+    localStorage.setItem("sonCikisCampaign", JSON.stringify({ ...old, ...add, savedAt: Date.now() }));
+}
+function pcSaved() { try { return JSON.parse(localStorage.getItem("sonCikisCampaign") || "{}"); } catch (_) { return {}; } }
+function pcCss() {
+    if ($("pcCampaignCss")) return;
+    const s = document.createElement("style"); s.id = "pcCampaignCss";
+    s.textContent = "#pcCampaign{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(2,6,13,.96);color:#f8fafc;padding:20px}.pcBox{width:min(920px,94vw);max-height:92vh;overflow:auto;background:linear-gradient(135deg,#111c29,#071018);border:1px solid #43586b;padding:clamp(22px,4vw,46px);box-shadow:0 25px 80px #000}.pcK{color:#facc15;font-size:12px;font-weight:bold;letter-spacing:3px}.pcT{font-size:clamp(34px,6vw,68px);line-height:1;margin:10px 0 22px;font-weight:900}.pcCast{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.pcChar{color:#dcecf1;text-align:left;border:1px solid #385161;background:#0b1520;padding:16px;cursor:pointer;min-height:180px}.pcChar:hover,.pcChar.sel{border-color:#facc15;background:#142534}.pcDot{display:block;width:18px;height:18px;border-radius:50%;margin-bottom:16px}.pcChar b{font-size:18px;display:block}.pcChar small{display:block;color:#facc15;margin:5px 0}.pcChar p{font-size:13px;color:#b3c6cf;margin:8px 0}.pcBtn{background:#facc15;color:#101820;border:0;padding:12px 20px;font-weight:bold;margin-top:20px;cursor:pointer}.pcBtn:disabled{opacity:.4;cursor:not-allowed}.pcScene{border-left:4px solid #facc15;padding:22px;background:#08121de8;max-width:690px}.pcScene b{color:#facc15;letter-spacing:1px}.pcScene p{font-size:20px;line-height:1.45}";
+    document.head.appendChild(s);
+    const mobile = document.createElement("style"); mobile.id = "pcMobileCss";
+    mobile.textContent = "#pMobileControls{position:fixed;z-index:50;inset:auto 16px 18px 16px;display:flex;align-items:end;justify-content:space-between;pointer-events:none}.pJoy{width:126px;height:126px;border:2px solid #89a5b1;background:#0b1820b8;border-radius:50%;pointer-events:auto;touch-action:none;position:relative;box-shadow:inset 0 0 18px #000}.pJoy i{position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:#91b9c6;border:2px solid #e5f7ff;transform:translate(-50%,-50%);pointer-events:none}.pActions{display:grid;grid-template-columns:repeat(2,76px);gap:9px;pointer-events:auto}.pActions button{height:62px;border:1px solid #89a5b1;background:#0b1820d9;color:#fff;border-radius:16px;font-size:12px;font-weight:bold;touch-action:none}.pActions .pUse{grid-column:1 / 3;height:72px;background:#263a41}.pActions .pJump{background:#34416c}.pActions .pRun{background:#4d3c25}@media (pointer:fine){#pMobileControls{display:none}}";
+    document.head.appendChild(mobile);
+}
+function pcShow(body) {
+    pcCss(); if (!pcLayer) { pcLayer = document.createElement("div"); pcLayer.id = "pcCampaign"; document.body.appendChild(pcLayer); }
+    pcLayer.innerHTML = `<div class="pcBox">${body}</div>`; pcLayer.style.display = "flex";
+}
+function pcHide() { if (pcLayer) pcLayer.style.display = "none"; }
+function pcPick(id) { pcChar = id; pcData({ character: id, chapter: 1 }); pcSelect(); }
+function pcSelect() {
+    pcChar = pcChar || pcSaved().character || null;
+    const cards = PC_CHARS.map(c => `<button class="pcChar ${pcChar === c.id ? "sel" : ""}" onclick="pcPick('${c.id}')"><span class="pcDot" style="background:${c.color}"></span><b>${c.name}</b><small>${c.role}</small><p>${c.story}</p></button>`).join("");
+    pcShow(`<div class="pcK">SON ÇIKIŞ · 2–4 KİŞİLİK GERÇEKÇİ CO-OP KAÇIŞ</div><div class="pcT">KARAKTER VE GEÇMİŞİNİ SEÇ</div><p>Her oyuncu kendi karakterinin sinematik geçmişini izler ve rolünü belirler.</p><div class="pcCast">${cards}</div><button class="pcBtn" ${pcChar ? "" : "disabled"} onclick="pcCinematicIntro()">SİNEMATİK ANİMASYONU BAŞLAT</button>`);
+}
+
+function pcCinematicIntro() {
+    const c = PC_CHARS.find(x => x.id === pcChar);
+    pcShow(`
+        <div class="pcK">SİNEMATİK GİRİŞ · GEÇMİŞİN AĞIRLIĞI</div>
+        <div class="pcScene" style="border-left:4px solid ${c.color}">
+            <b style="color:${c.color};font-size:24px;">${c.name.toUpperCase()} — ${c.role.toUpperCase()}</b>
+            <p style="margin-top:14px;font-style:italic;">“${c.story}”</p>
+            <div style="background:#020617;padding:16px;border-radius:8px;border:1px solid #334155;margin:16px 0;">
+                <p style="font-size:15px;color:#cbd5e1;line-height:1.6;">
+                    Demir kapıların kapanma sesi yankılanıyor. Yıllardır bu hücrede tek bir anı bekledin. Şimdi o an geldi. 
+                    Koridordaki gardiyanların adım seslerini dinle. Kaçış başladığında dönüş yok.
+                </p>
+            </div>
+            <div style="font-size:13px;color:#facc15;font-weight:bold;margin-bottom:14px;">
+                KAÇIŞ STRATEJİSİ: İsyandan faydalanarak atölye havalandırmasına sızma.
+            </div>
+            <button class="pcBtn" onclick="pcLaunch()">HÜCREDEN ÇIKIŞI BAŞLAT</button>
+        </div>
+    `);
+}
+function pcLaunch() {
+    pcHide(); pcData({ character: pcChar, chapter: 1, objective: "Ekibini bul ve kaçış malzemelerini topla" });
+    const prison = pcOriginalStartPrison(pcNet);
+    // Normal hapis oyununun bütün ağ kodunu koru; sadece kampanya paketini yakala.
+    currentGame = {
+        ...prison,
+        onRelay(from, data) {
+            if (data && data.k === "pcStory") { pcStoryReceive(data); return; }
+            prison.onRelay(from, data);
+        },
+        destroy() { prison.destroy(); pcHide(); },
+    };
+}
+// Sadece mevcut startPrison çağrısını yakalar; geri kalan site kodu aynen kalır.
+startPrison = function(net) { pcNet = net; pcSelect(); return { onRelay() {}, onRoomState() {}, destroy() { pcHide(); } }; };
+
+// Hapishane bittikten sonra oyun lobiye dönmek yerine uzun kampanyaya geçer.
+// Görevler bölüm bölüm kaydedilir; hostun kararı tüm oyunculara gönderilir.
+const PC_STORY = [
+    { title: "Çitlerin Ötesi", place: "Bölüm 02 · Şehir Çevre Yolu", goal: "Polis barikatından önce terk edilmiş garaja ulaş.", scenes: [
+        { h: "Sirenler", t: "Duvarın öbür tarafında özgürlük yoktu; yalnızca mavi ışıklar ve isimlerinizi bilen polisler vardı." },
+        { h: "Aras'ın Sesi", t: "Aras'ın telefonu çaldı. On yıldır öldü sandığı kardeşi Efe fısıldadı: ‘Dosyayı teslim etme. Vural senin sandığından yakın.’" },
+        { h: "İlk Ayrım", t: "Mert yaralıyı taşımak istiyor. Derya ise barikat kapanmadan kaçmanızı söylüyor.", choices: [["yarali", "YARALIYI AL", "Merhamet kazan; polis size yaklaşır.", { mercy: 2, loyalty: 1 }], ["kac", "BARİKATTAN KAÇ", "Zaman kazan; ekipte bir çatlak oluşur.", { survival: 2, loyalty: -1 }]] }
+    ]},
+    { title: "Kayıp İstasyon", place: "Bölüm 03 · Sınır Kasabası", goal: "İstasyondaki güvenli evi bul ve geçmişin izini sür.", scenes: [
+        { h: "Sera'nın Sırrı", t: "Güvenli evdeki çocuk Sera'ya ‘abla’ dedi. Sera yıllardır kardeşini Vural'ın adamlarından sakladığını itiraf etti." },
+        { h: "Kaset", t: "Derya'nın kaydında Aras'ın mahkûm edildiği gecenin görüntüsü var. Kaydı yayınlarsanız Vural ekibin peşine düşecek." },
+        { h: "Kimin Gerçeği?", t: "Dosyayı şimdi mi yayınlayacaksınız, yoksa kardeşi kurtarmak için saklayacak mısınız?", choices: [["yayin", "DOSYAYI YAYINLA", "Gerçek kazanır; saklanmak zorlaşır.", { truth: 2, survival: -1 }], ["sakla", "DOSYAYI SAKLA", "Ekibi korursun; Vural güçlü kalır.", { loyalty: 1, survival: 1, truth: -1 }]] }
+    ]},
+    { title: "Buz Gibi Sessizlik", place: "Bölüm 04 · Dağ Evi", goal: "Fırtınada iz sürücüleri atlat ve güveni yeniden kur.", scenes: [
+        { h: "Sığınak", t: "Dağ evinde elektrik yoktu. Mert, ailesi için yıllar önce Vural'a borçlandığını söylemek üzereyken kapı çalındı." },
+        { h: "İhanet", t: "Masada bir takip cihazı bulundu. Mert bunu bilerek mi taşıdı, yoksa Vural onu yine mi kullandı?" },
+        { h: "Güven", t: "Mert kaçmadan önce tek bir not bıraktı: ‘Beni affet. Onları yaşat.’", choices: [["mert", "MERT'İ BUL", "İhanetin arkasındaki nedeni öğrenme şansı.", { loyalty: 2, mercy: 1 }], ["birak", "ONU BIRAK", "Ekibi koru; cevapları geride bırak.", { survival: 2, loyalty: -2 }]] }
+    ]},
+    { title: "Borç", place: "Bölüm 05 · Terk Edilmiş Liman", goal: "Mert'i bul ve Vural'ın teklifini cevapla.", scenes: [
+        { h: "Liman", t: "Mert vinçlerin altında bekliyordu. Vural'ın adamları ailesini rehin almıştı. Mert sizi satmadı; size zaman kazandırdı." },
+        { h: "Teklif", t: "Vural telsizden konuştu: ‘Dosya karşılığında yalnızca biriniz özgür kalacak.’ Herkes birbirine baktı." },
+        { h: "Bedel", t: "Birini teslim edip diğerlerini kurtarmak mı, yoksa hep birlikte savaşmak mı?", choices: [["teslim", "BİRİNİ TESLİM ET", "Hayatta kalma şansı; telafisi olmayan bir kırılma.", { survival: 3, loyalty: -4 }], ["birlik", "KİMSEYİ BIRAKMA", "Zor savaş; ekibin son şansı.", { loyalty: 3, truth: 1, survival: -1 }]] }
+    ]},
+    { title: "Son Vagon", place: "Bölüm 06 · Gece Treni", goal: "Trene bin ve Vural'ın dosyasını son kez seç.", scenes: [
+        { h: "Son Plan", t: "Tren hareket ederken Derya canlı yayın cihazını hazırladı. Aras, Efe'nin yaşadığını öğrendi. Sera kardeşinin elini tuttu." },
+        { h: "Fedakârlık", t: "Vural son vagona bindi. Dosya yayınlanırsa herkes hedef olacak; yok edilirse hiç kimse gerçeği öğrenmeyecek." },
+        { h: "Son Seçim", t: "Özgürlük mü, gerçek mi, yoksa birbiriniz mi?", choices: [["gercek", "GERÇEĞİ YAYINLA", "Her şeyi dünyaya açıkla.", { truth: 3, survival: -1 }], ["yak", "DOSYAYI YAK", "Ekibini görünmez kıl.", { survival: 2, truth: -3 }], ["vural", "VURAL'I CANLI AL", "Hem riski hem adaleti seç.", { mercy: 2, truth: 1, loyalty: 1, survival: -1 }]] }
+    ]},
+];
+let pcStoryChapter = 0, pcStoryScene = 0, pcStoryNet = null, pcChoices = [];
+function pcStoryStart(net) {
+    pcStoryNet = net; pcStoryChapter = 0; pcStoryScene = 0; pcChoices = [];
+    pcStoryRender();
+}
+function pcStoryRender() {
+    const chapter = PC_STORY[pcStoryChapter];
+    if (!chapter) { pcFinale(); return; }
+    const scene = chapter.scenes[pcStoryScene];
+    const bars = PC_STORY.map((_, i) => `<span style="background:${i < pcStoryChapter ? '#facc15' : '#334155'}"></span>`).join("");
+    const choice = scene.choices ? (pcStoryNet && !pcStoryNet.isHost() ? `<p style="color:#b3c6cf">Host ekibin kararını veriyor…</p>` : `<div class="pcCast">${scene.choices.map((c, i) => `<button class="pcChar" onclick="pcStoryChoose(${i})"><b>${c[1]}</b><p>${c[2]}</p></button>`).join("")}</div>`) : `<button class="pcBtn" onclick="pcStoryNext()">DEVAM ET</button>`;
+    pcShow(`<div class="pcK">${chapter.place}</div><div class="pcT">${chapter.title}</div><div class="pcScene"><b>${scene.h.toUpperCase()}</b><p>${scene.t}</p><p style="color:#facc15;font-size:14px">GÖREV: ${chapter.goal}</p>${choice}</div><div style="display:flex;gap:5px;margin-top:22px">${bars}</div>`);
+}
+function pcStoryNext() {
+    pcStoryScene++;
+    if (pcStoryScene >= PC_STORY[pcStoryChapter].scenes.length) { pcStoryChapter++; pcStoryScene = 0; pcData({ chapter: pcStoryChapter + 1, choices: pcChoices }); }
+    pcStoryRender();
+}
+function pcStoryChoose(index) {
+    const choice = PC_STORY[pcStoryChapter].scenes[pcStoryScene].choices[index];
+    const picked = { id: choice[0], values: choice[3] };
+    if (pcStoryNet && pcStoryNet.isHost()) pcStoryNet.send({ k: "pcStory", chapter: pcStoryChapter, scene: pcStoryScene, picked });
+    pcChoices.push(picked); pcData({ choices: pcChoices }); pcStoryNext();
+}
+function pcStoryReceive(data) {
+    pcStoryChapter = data.chapter; pcStoryScene = data.scene; if (data.picked) pcChoices.push(data.picked); pcData({ choices: pcChoices }); pcStoryNext();
+}
+function pcFinale() {
+    const score = { loyalty: 0, truth: 0, mercy: 0, survival: 0 };
+    pcChoices.forEach(c => Object.entries(c.values || {}).forEach(([k, v]) => score[k] += v));
+    let ending;
+    if (score.loyalty >= 5 && score.truth >= 4) ending = ["BİRLİKTE ŞAFAK", "Vural canlı yayında yakalandı. Yıllarca kaçan ekip ilk kez aynı masada, aynı isimlerle oturdu. Özgürlük pahalıydı; ama kimse geride kalmadı."];
+    else if (score.truth >= 5) ending = ["GERÇEĞİN BEDELİ", "Dosya dünyaya yayıldı. Vural düştü, fakat ekip artık her yerde aranıyordu. Derya kaseti kapatırken ‘Bazen yaşamak, kaybolmaktır’ dedi."];
+    else if (score.survival >= 6 && score.loyalty < 1) ending = ["KIRIK VAGON", "Herkes hayatta kaldı; fakat aynı vagonu paylaşmadı. Birbirinizin adını gazetelerde gördünüz, sonra o isimleri bile anmamayı öğrendiniz."];
+    else if (score.mercy >= 4) ending = ["TANIK", "Vural kelepçelenirken Mert ailesine döndü. Ekip kaçmadı; tanıklık etti. Bu, en riskli ve en insani seçimdi."];
+    else ending = ["KÜLLERİN ALTINDA", "Dosya yandı. Yeni isimlerle, yeni şehirlerde yaşamaya başladınız. Her şafakta eski dostların hâlâ yaşıyor olup olmadığını düşündünüz."];
+    pcData({ chapter: 7, ending: ending[0], scores: score });
+    pcShow(`<div class="pcK">KAMPANYA FİNALİ · KAYIT EDİLDİ</div><div class="pcT">${ending[0]}</div><div class="pcScene"><b>SEÇİMLERİNİZ HİKÂYEYİ YAZDI.</b><p>${ending[1]}</p><p style="color:#facc15;font-size:14px">Sadakat ${score.loyalty} · Gerçek ${score.truth} · Merhamet ${score.mercy} · Hayatta kalma ${score.survival}</p><button class="pcBtn" onclick="pcHide()">ANA MENÜYE DÖN</button></div>`);
+}
+// ===================================================================
+//  3D POLİS KOVALAMACASI & GERÇEK ÇATIŞMA MOTORU (Three.js & GLTF)
+//  3 Dakika (180 sn), Gerçek Araç Sürüşü + Eşzamanlı Ateş Etme / Çatışma
+// ===================================================================
+let customLoadedCarModel = null;
+let customLoadedPoliceModel = null;
+
+function setupModelUploader(onCarLoaded) {
+    const btn = $("cModelUploadBtn");
+    const input = $("cModelInput");
+    if (!btn || !input) return;
+    btn.onclick = () => input.click();
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (re) => {
+            const contents = re.target.result;
+            if (typeof THREE !== "undefined" && THREE.GLTFLoader) {
+                const loader = new THREE.GLTFLoader();
+                loader.parse(contents, "", (gltf) => {
+                    customLoadedCarModel = gltf.scene;
+                    toast("3D Model başarıyla yüklendi ve araca bağlandı! 🚗");
+                    if (onCarLoaded) onCarLoaded(gltf.scene);
+                }, (err) => {
+                    toast("3D Model ayrıştırma hatası!");
+                });
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+}
+
+// Global olarak da dışarıdan 3D model bağlama API'si:
+window.loadCustom3DModel = function(urlOrFile, type) {
+    if (typeof THREE === "undefined" || !THREE.GLTFLoader) return;
+    const loader = new THREE.GLTFLoader();
+    if (typeof urlOrFile === "string") {
+        loader.load(urlOrFile, (gltf) => {
+            if (type === "police") customLoadedPoliceModel = gltf.scene;
+            else customLoadedCarModel = gltf.scene;
+            toast("3D Model bağlandı: " + type);
+        });
+    }
+};
+
+function start3DPoliceChase(net) {
+    const cleanups = [];
+    const on = (t, e, f, o) => { t.addEventListener(e, f, o); cleanups.push(() => t.removeEventListener(e, f, o)); };
+    let raf = 0, destroyed = false;
+    const timers = [];
+    const later = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
+
+    $("prisonGame").classList.add("hidden");
+    $("fpsGame").classList.add("hidden");
+    $("chaseGame").classList.remove("hidden");
+    showScreen("game");
+
+    const myId = net.myId();
+    const rs = net.state();
+    const players = rs ? rs.players : [];
+    const order = players.map(p => p.id);
+    const names = {};
+    players.forEach(p => { names[p.id] = p.name; });
+
+    // Oyuncu sayısına bakılmaksızın esnek roller:
+    // Tabancayı ilk alan veya sürücü koltuğuna ilk oturan rolü üstlenir.
+    let isDriver = (myIndex === 0);
+    let isGunner = !isDriver || (players.length === 1);
+
+    const roleBadge = $("cRoleBadge");
+    function updateRoleDisplay() {
+        if (!roleBadge) return;
+        roleBadge.textContent = isDriver ? "🚗 SÜRÜCÜ KOLTUĞU" : "🎯 NİŞANCI (" + (names[myId] || "Sen") + ")";
+        roleBadge.style.background = isDriver ? "#0284c7" : "#d97706";
+        if (xh) xh.style.display = isGunner ? "block" : "none";
+    }
+    updateRoleDisplay();
+
+    // Rol Değiştirme Butonu (İsteyen sürücüye, isteyen nişancıya geçer)
+    if (roleBadge) {
+        roleBadge.style.cursor = "pointer";
+        roleBadge.title = "Role geçiş yapmak için tıkla (Sürücü / Nişancı)";
+        roleBadge.onclick = () => {
+            isDriver = !isDriver;
+            isGunner = !isDriver || (players.length === 1);
+            updateRoleDisplay();
+            net.send({ k: "chase_role_swap", driverId: isDriver ? myId : null });
+            toast(isDriver ? "Sürücü koltuğuna geçtin!" : "Nişancı pozisyonuna geçtin!");
+        };
+    }
+
+    // Three.js Kurulumu
+    const canvas = $("chaseCanvas");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050813);
+    scene.fog = new THREE.FogExp2(0x080e1c, 0.007);
+
+    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 500);
+
+    function onResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    on(window, "resize", onResize);
+
+    // Işıklandırma
+    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x0f172a, 0.45);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0x93c5fd, 0.6);
+    dirLight.position.set(20, 40, -30);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    scene.add(dirLight);
+
+    // Otoban ve Çevre Modellemesi
+    const ROAD_WIDTH = 26;
+    const SEG_LEN = 120;
+    const NUM_SEGS = 5;
+    const roadGroup = new THREE.Group();
+    scene.add(roadGroup);
+
+    // Yol dokusu (Asfalt & Şeritler)
+    function createRoadSegment(zPos) {
+        const seg = new THREE.Group();
+        // Asfalt taban
+        const roadGeo = new THREE.PlaneGeometry(ROAD_WIDTH, SEG_LEN);
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x171d28, roughness: 0.85, metalness: 0.1 });
+        const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+        roadMesh.rotation.x = -Math.PI / 2;
+        roadMesh.receiveShadow = true;
+        seg.add(roadMesh);
+
+        // Yol kenar bariyerleri (Guardrails)
+        const railGeo = new THREE.BoxGeometry(0.8, 1.2, SEG_LEN);
+        const railMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.4, metalness: 0.7 });
+        const leftRail = new THREE.Mesh(railGeo, railMat);
+        leftRail.position.set(-ROAD_WIDTH / 2 - 0.4, 0.6, 0);
+        seg.add(leftRail);
+        const rightRail = new THREE.Mesh(railGeo, railMat);
+        rightRail.position.set(ROAD_WIDTH / 2 + 0.4, 0.6, 0);
+        seg.add(rightRail);
+
+        // Şerit Çizgileri
+        for (let lane = -1; lane <= 1; lane++) {
+            const laneX = lane * (ROAD_WIDTH / 4);
+            for (let z = -SEG_LEN / 2; z < SEG_LEN / 2; z += 12) {
+                const dashGeo = new THREE.PlaneGeometry(0.35, 6);
+                const dashMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+                const dash = new THREE.Mesh(dashGeo, dashMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.position.set(laneX, 0.02, z + 3);
+                seg.add(dash);
+            }
+        }
+
+        // Sokak Lambaları (Aydınlatma direkleri)
+        for (let z = -SEG_LEN / 2 + 10; z < SEG_LEN / 2; z += 40) {
+            const poleGeo = new THREE.CylinderGeometry(0.18, 0.22, 10, 8);
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.set(-ROAD_WIDTH / 2 - 1.8, 5, z);
+            seg.add(pole);
+
+            const lampHead = new THREE.PointLight(0xfef08a, 0.8, 35, 1.8);
+            lampHead.position.set(-ROAD_WIDTH / 2 + 1, 9.8, z);
+            seg.add(lampHead);
+        }
+
+        seg.position.z = zPos;
+        return seg;
+    }
+
+    const roadSegments = [];
+    for (let i = 0; i < NUM_SEGS; i++) {
+        const seg = createRoadSegment(i * SEG_LEN);
+        roadGroup.add(seg);
+        roadSegments.push(seg);
+    }
+
+    // Yüksek Detaylı 3D Kaçış Aracı (Muscle / Supercar)
+    function buildDetailedGetawayCar() {
+        const car = new THREE.Group();
+
+        if (customLoadedCarModel) {
+            const clone = customLoadedCarModel.clone();
+            clone.scale.set(1.5, 1.5, 1.5);
+            car.add(clone);
+            return car;
+        }
+
+        // Ana gövde (Metalik Grafit/Turuncu)
+        const bodyGeo = new THREE.BoxGeometry(2.3, 0.85, 4.8);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, roughness: 0.2, metalness: 0.85 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0.65;
+        body.castShadow = true;
+        car.add(body);
+
+        // Kabin / Tavan
+        const cabinGeo = new THREE.BoxGeometry(1.85, 0.7, 2.5);
+        const glassMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.1, metalness: 0.95 });
+        const cabin = new THREE.Mesh(cabinGeo, glassMat);
+        cabin.position.set(0, 1.25, -0.2);
+        cabin.castShadow = true;
+        car.add(cabin);
+
+        // Karbon Rüzgarlık (Spoiler)
+        const spoilerGeo = new THREE.BoxGeometry(2.2, 0.08, 0.6);
+        const spoilerMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.6 });
+        const spoiler = new THREE.Mesh(spoilerGeo, spoilerMat);
+        spoiler.position.set(0, 1.45, 2.1);
+        car.add(spoiler);
+
+        // Farlar & Arka Stoplar
+        const frontLightL = new THREE.SpotLight(0xffffff, 2.2, 70, Math.PI / 6, 0.4);
+        frontLightL.position.set(-0.85, 0.65, -2.4);
+        frontLightL.target.position.set(-0.85, 0, -30);
+        car.add(frontLightL); car.add(frontLightL.target);
+
+        const frontLightR = new THREE.SpotLight(0xffffff, 2.2, 70, Math.PI / 6, 0.4);
+        frontLightR.position.set(0.85, 0.65, -2.4);
+        frontLightR.target.position.set(0.85, 0, -30);
+        car.add(frontLightR); car.add(frontLightR.target);
+
+        // Arka Stop Işıkları
+        const tailGeo = new THREE.BoxGeometry(0.5, 0.15, 0.1);
+        const tailMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const tailL = new THREE.Mesh(tailGeo, tailMat);
+        tailL.position.set(-0.85, 0.7, 2.42); car.add(tailL);
+        const tailR = new THREE.Mesh(tailGeo, tailMat);
+        tailR.position.set(0.85, 0.7, 2.42); car.add(tailR);
+
+        // Gerçekçi Motor & Egzoz Boruları (Nitro yok, saf mekanik)
+        const exhaustGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8);
+        const exhaustMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.2 });
+        const exL = new THREE.Mesh(exhaustGeo, exhaustMat);
+        exL.rotation.x = Math.PI / 2;
+        exL.position.set(-0.6, 0.35, 2.45);
+        const exR = exL.clone();
+        exR.position.x = 0.6;
+        car.add(exL); car.add(exR);
+
+        // 4 Tekerlek
+        const wheelGeo = new THREE.CylinderGeometry(0.46, 0.46, 0.38, 16);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.9 });
+        const wheelPoss = [
+            [-1.15, 0.46, -1.6], [1.15, 0.46, -1.6],
+            [-1.15, 0.46, 1.6], [1.15, 0.46, 1.6]
+        ];
+        car.wheels = [];
+        wheelPoss.forEach(pos => {
+            const w = new THREE.Mesh(wheelGeo, wheelMat);
+            w.rotation.z = Math.PI / 2;
+            w.position.set(...pos);
+            w.castShadow = true;
+            car.add(w);
+            car.wheels.push(w);
+        });
+
+        // Çatı Taktik Silah Kulesi (Nişancı için)
+        const turretBaseGeo = new THREE.CylinderGeometry(0.4, 0.45, 0.25, 12);
+        const turretMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+        const turretBase = new THREE.Mesh(turretBaseGeo, turretMat);
+        turretBase.position.set(0, 1.68, -0.1);
+        car.add(turretBase);
+
+        const barrelGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.4, 8);
+        const barrel = new THREE.Mesh(barrelGeo, turretMat);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.set(0, 1.82, 0.7);
+        car.add(barrel);
+        car.turretBarrel = barrel;
+
+        return car;
+    }
+
+    const getawayCar = buildDetailedGetawayCar();
+    scene.add(getawayCar);
+
+    // Polis Araçları Oluşturucu
+    function createPoliceCruiser() {
+        const police = new THREE.Group();
+
+        if (customLoadedPoliceModel) {
+            const clone = customLoadedPoliceModel.clone();
+            clone.scale.set(1.4, 1.4, 1.4);
+            police.add(clone);
+        } else {
+            // Siyah & Beyaz Polis Gövdesi
+            const bodyGeo = new THREE.BoxGeometry(2.2, 0.82, 4.6);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.25, metalness: 0.8 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.65;
+            body.castShadow = true;
+            police.add(body);
+
+            // Beyaz Kapılar / Tavan
+            const whitePartGeo = new THREE.BoxGeometry(2.22, 0.7, 1.9);
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+            const whitePart = new THREE.Mesh(whitePartGeo, whiteMat);
+            whitePart.position.set(0, 0.66, 0);
+            police.add(whitePart);
+
+            // Kabin
+            const cabinGeo = new THREE.BoxGeometry(1.8, 0.68, 2.3);
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.1, metalness: 0.9 });
+            const cabin = new THREE.Mesh(cabinGeo, glassMat);
+            cabin.position.set(0, 1.25, -0.1);
+            police.add(cabin);
+
+            // Ön Çarpışma Demiri (Bullbar)
+            const bullbarGeo = new THREE.BoxGeometry(2.1, 0.6, 0.3);
+            const bullbarMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.2 });
+            const bullbar = new THREE.Mesh(bullbarGeo, bullbarMat);
+            bullbar.position.set(0, 0.55, -2.4);
+            police.add(bullbar);
+
+            // Çakar Işık Barı (Strobe Lights: Kırmızı / Mavi)
+            const lightbarBase = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 0.25), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+            lightbarBase.position.set(0, 1.64, -0.1);
+            police.add(lightbarBase);
+
+            const redLight = new THREE.PointLight(0xef4444, 1.8, 25, 2);
+            redLight.position.set(-0.5, 1.7, -0.1);
+            police.add(redLight);
+            police.redLight = redLight;
+
+            const blueLight = new THREE.PointLight(0x3b82f6, 1.8, 25, 2);
+            blueLight.position.set(0.5, 1.7, -0.1);
+            police.add(blueLight);
+            police.blueLight = blueLight;
+
+            // Tekerlekler
+            const wheelGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.36, 14);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+            [[-1.1, 0.44, -1.5], [1.1, 0.44, -1.5], [-1.1, 0.44, 1.5], [1.1, 0.44, 1.5]].forEach(pos => {
+                const w = new THREE.Mesh(wheelGeo, wheelMat);
+                w.rotation.z = Math.PI / 2;
+                w.position.set(...pos);
+                police.add(w);
+            });
+        }
+
+        police.hp = 100;
+        police.maxHp = 100;
+        police.alive = true;
+        police.targetX = 0;
+        police.speedZ = 0;
+        police.spinOut = 0;
+        return police;
+    }
+
+    setupModelUploader((newScene) => {
+        // Yeni model yüklendiğinde getawayCar'a entegre et
+        getawayCar.clear();
+        const clone = newScene.clone();
+        clone.scale.set(1.5, 1.5, 1.5);
+        getawayCar.add(clone);
+    });
+
+    // Durum Değişkenleri
+    const DURATION = 180; // 3 Dakika = 180 Saniye
+    let timeLeft = DURATION;
+    let carHp = 100;
+    let carSpeed = 135; // km/s
+    let carX = 0;
+    let carLane = 0;
+    let steerAngle = 0;
+    let isNitro = false;
+    let nitroFuel = 100;
+    let distanceCovered = 0;
+    let killedPoliceCount = 0;
+
+    const policeSquad = [];
+    const bullets = [];
+    const particles = [];
+
+    // Polis Dalgaları Yönetimi
+    let nextPoliceSpawn = 2.0;
+
+    function spawnPoliceWave() {
+        if (policeSquad.filter(p => p.alive).length >= 4) return;
+        const p = createPoliceCruiser();
+        // Arkadan ve farklı şeritlerden gelsin
+        const lanes = [-7, -2.5, 2.5, 7];
+        p.position.x = lanes[Math.floor(Math.random() * lanes.length)];
+        p.position.z = getawayCar.position.z + 45 + Math.random() * 25;
+        p.targetX = p.position.x;
+        p.speedZ = 120 + Math.random() * 20;
+        scene.add(p);
+        policeSquad.push(p);
+    }
+
+    // Kontroller
+    const keysDown = {};
+    on(window, "keydown", (e) => {
+        keysDown[e.code] = true;
+        if (e.code === "KeyR" && isGunner) reloadGun();
+    });
+    on(window, "keyup", (e) => { keysDown[e.code] = false; });
+
+    // Mobil Dokunmatik Kontroller Bağlantısı
+    const bindTouch = (id, keyCode) => {
+        const el = $(id);
+        if (!el) return;
+        const down = (e) => { e.preventDefault(); keysDown[keyCode] = true; };
+        const up = (e) => { e.preventDefault(); keysDown[keyCode] = false; };
+        on(el, "pointerdown", down);
+        on(el, "pointerup", up);
+        on(el, "pointercancel", up);
+        on(el, "pointerleave", up);
+    };
+    bindTouch("cMobGas", "KeyW");
+    bindTouch("cMobBrake", "KeyS");
+    bindTouch("cMobLeft", "KeyA");
+    bindTouch("cMobRight", "KeyD");
+
+    const mobFire = $("cMobFire");
+    if (mobFire) on(mobFire, "pointerdown", (e) => { e.preventDefault(); tryShoot(); });
+    const mobReload = $("cMobReload");
+    if (mobReload) on(mobReload, "pointerdown", (e) => { e.preventDefault(); reloadGun(); });
+
+    // Dokunmatik Ekranda Nişan Alma (Mobile Aim Drag / Tap)
+    on(canvas, "pointermove", (e) => {
+        if (matchMedia("(pointer: coarse)").matches) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        }
+    });
+
+    on(canvas, "pointerdown", (e) => {
+        if (matchMedia("(pointer: coarse)").matches && isGunner) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            tryShoot();
+        }
+    });
+
+    // Nişancı Kontrolleri (Fare ile 3D Nişan & Ateş)
+    let mouseX = 0, mouseY = 0;
+    const raycaster = new THREE.Raycaster();
+    const mouseVec = new THREE.Vector2();
+    let ammo = 30;
+    let isReloading = false;
+    let nextFireTime = 0;
+
+    on(window, "mousemove", (e) => {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        if (xh) {
+            xh.style.left = mouseX + "px";
+            xh.style.top = mouseY + "px";
+        }
+        mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
+
+    on(window, "mousedown", (e) => {
+        if (e.button === 0 && isGunner) {
+            tryShoot();
+        }
+    });
+
+    function reloadGun() {
+        if (isReloading || ammo >= 30) return;
+        isReloading = true;
+        const stat = $("cGunStatus");
+        if (stat) stat.textContent = "Şarjör Değişiyor...";
+        tone(350, 0.15, "square", 0.1);
+        later(() => {
+            ammo = 30;
+            isReloading = false;
+            if (stat) stat.textContent = "M249 Ağır Makineli";
+            if ($("cAmmoText")) $("cAmmoText").textContent = "30";
+            tone(750, 0.1, "triangle", 0.1);
+        }, 1800);
+    }
+
+    function tryShoot() {
+        const now = performance.now();
+        if (isReloading) return;
+        if (ammo <= 0) { reloadGun(); return; }
+        if (now < nextFireTime) return;
+
+        ammo--;
+        nextFireTime = now + 120;
+        if ($("cAmmoText")) $("cAmmoText").textContent = ammo;
+        tone(220, 0.08, "sawtooth", 0.22, 60);
+
+        // Çapraz ışın ile hedefleme (Raycast)
+        raycaster.setFromCamera(mouseVec, camera);
+        const targets = policeSquad.filter(p => p.alive);
+        const intersects = raycaster.intersectObjects(targets, true);
+
+        // Namlu Alevi & Mermi İzi (Tracer)
+        const tracerGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(getawayCar.position.x, getawayCar.position.y + 1.8, getawayCar.position.z + 0.8),
+            raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(120))
+        ]);
+        const tracerMat = new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 3 });
+        const tracer = new THREE.Line(tracerGeo, tracerMat);
+        scene.add(tracer);
+        later(() => scene.remove(tracer), 60);
+
+        if (intersects.length > 0) {
+            let hitObj = intersects[0].object;
+            while (hitObj.parent && !hitObj.hp && hitObj !== scene) hitObj = hitObj.parent;
+            if (hitObj && hitObj.alive) {
+                hitObj.hp -= 28;
+                hitMarker();
+                spawnSpark(intersects[0].point);
+                if (hitObj.hp <= 0) {
+                    destroyPoliceCruiser(hitObj);
+                }
+                net.send({ k: "chase_hit", targetId: policeSquad.indexOf(hitObj), hp: hitObj.hp });
+            }
+        }
+    }
+
+    function hitMarker() {
+        const hit = $("cHit");
+        if (hit) {
+            hit.style.opacity = "1";
+            later(() => hit.style.opacity = "0", 120);
+        }
+        tone(1200, 0.05, "square", 0.12);
+    }
+
+    function spawnSpark(pos) {
+        for (let i = 0; i < 8; i++) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+            p.position.copy(pos);
+            p.vel = new THREE.Vector3((Math.random() - 0.5) * 8, Math.random() * 6 + 2, (Math.random() - 0.5) * 8);
+            scene.add(p);
+            particles.push(p);
+        }
+    }
+
+    function destroyPoliceCruiser(p) {
+        p.alive = false;
+        p.spinOut = 1.0;
+        killedPoliceCount++;
+        addTeamFeed("🚨 Polis aracı imha edildi!");
+        tone(90, 0.6, "sawtooth", 0.35, 20);
+
+        // Patlama dumanı / parçaları
+        for (let i = 0; i < 24; i++) {
+            const part = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshBasicMaterial({ color: i % 2 ? 0xef4444 : 0x1e293b }));
+            part.position.copy(p.position).add(new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 2, (Math.random() - 0.5) * 2));
+            part.vel = new THREE.Vector3((Math.random() - 0.5) * 16, Math.random() * 12 + 4, (Math.random() - 0.5) * 16);
+            scene.add(part);
+            particles.push(part);
+        }
+    }
+
+    function addTeamFeed(text) {
+        const feed = $("cTeamFeed");
+        if (!feed) return;
+        const d = document.createElement("div");
+        d.textContent = text;
+        feed.appendChild(d);
+        while (feed.children.length > 4) feed.firstChild.remove();
+        later(() => d.remove(), 4000);
+    }
+
+    function takeDamage(amt) {
+        carHp = Math.max(0, carHp - amt);
+        const dmg = $("cDamage");
+        if (dmg) {
+            dmg.style.opacity = "1";
+            later(() => dmg.style.opacity = "0", 180);
+        }
+        tone(140, 0.2, "sawtooth", 0.2, 50);
+
+        if (carHp <= 0) {
+            onChaseFail();
+        }
+    }
+
+    function onChaseFail() {
+        destroyed = true;
+        cancelAnimationFrame(raf);
+        showEnd(net, "YAKALANDINIZ! 🚨", "Polis barikatı aracı hurdaya çevirdi ve kaçış başarısız oldu.<br>Dayanılan Süre: <b>" + fmtTime(DURATION - timeLeft) + "</b>", "#ef4444");
+    }
+
+    function onChaseVictory() {
+        destroyed = true;
+        cancelAnimationFrame(raf);
+        tone(523, 0.3, "triangle", 0.15); later(() => tone(784, 0.5, "triangle", 0.2), 250);
+        showEnd(net, "OTOBANDAN SIYRILDINIZ! 🏆", `3 dakikalık amansız takipten kurtuldunuz!<br>Kuzey Eyalet Sınırını Geçtiniz.<br>İmha Edilen Polis Aracı: <b>${killedPoliceCount}</b> • Kalan Zırh: <b>%${Math.ceil(carHp)}</b>`, "#22c55e");
+    }
+
+    let lastTime = performance.now();
+    let netSyncTimer = 0;
+
+    function frame(now) {
+        if (destroyed) return;
+        raf = requestAnimationFrame(frame);
+        const dt = Math.min(0.06, (now - lastTime) / 1000);
+        lastTime = now;
+
+        // 3 Dakikalık Geri Sayım
+        timeLeft = Math.max(0, timeLeft - dt);
+        if (timeLeft <= 0) {
+            onChaseVictory();
+            return;
+        }
+
+        // Sürücü Gerçekçi Sürüş Mekaniği (Gaz, Fren, Direksiyon, Hararet Yönetimi)
+        if (isDriver) {
+            let steerInput = 0;
+            if (keysDown.KeyA || keysDown.ArrowLeft) steerInput -= 1;
+            if (keysDown.KeyD || keysDown.ArrowRight) steerInput += 1;
+
+            steerAngle += (steerInput * 0.38 - steerAngle) * Math.min(1, dt * 7);
+            carX += steerAngle * carSpeed * dt * 0.42;
+            carX = clamp(carX, -ROAD_WIDTH / 2 + 2, ROAD_WIDTH / 2 - 2);
+
+            let targetSpd = 125;
+            if (keysDown.KeyW || keysDown.ArrowUp) {
+                targetSpd = 160; // Tam gaz
+            } else if (keysDown.KeyS || keysDown.ArrowDown) {
+                targetSpd = 70; // Fren
+            }
+            carSpeed += (targetSpd - carSpeed) * Math.min(1, dt * 2.5);
+        }
+
+        distanceCovered += carSpeed * (1000 / 3600) * dt;
+
+        // Araç 3D Konumu ve Sarsıntısı
+        getawayCar.position.x = carX;
+        getawayCar.rotation.y = -steerAngle * 0.5;
+        getawayCar.rotation.z = -steerAngle * 0.2;
+        getawayCar.position.y = Math.sin(now * 0.02) * 0.03; // Süspansiyon titreşimi
+
+        if (getawayCar.wheels) {
+            getawayCar.wheels.forEach(w => w.rotation.x += carSpeed * dt * 0.1);
+        }
+
+        // Sonsuz Otoban İlerleme İllüzyonu
+        const moveDist = carSpeed * dt * 0.6;
+        roadSegments.forEach(seg => {
+            seg.position.z += moveDist;
+            if (seg.position.z > SEG_LEN) {
+                seg.position.z -= NUM_SEGS * SEG_LEN;
+            }
+        });
+
+        // Polisler AI Davranışı
+        nextPoliceSpawn -= dt;
+        if (nextPoliceSpawn <= 0) {
+            nextPoliceSpawn = 5.5 + Math.random() * 3.5;
+            spawnPoliceWave();
+        }
+
+        for (let i = policeSquad.length - 1; i >= 0; i--) {
+            const p = policeSquad[i];
+            if (p.alive) {
+                // Çakar Işık Animasyonu
+                const flash = Math.sin(now * 0.02);
+                if (p.redLight) p.redLight.intensity = flash > 0 ? 3.0 : 0.2;
+                if (p.blueLight) p.blueLight.intensity = flash <= 0 ? 3.0 : 0.2;
+
+                // Yaklaşma ve sıkıştırma manevrası
+                const relZ = p.position.z - getawayCar.position.z;
+                if (relZ > 5) {
+                    p.position.z -= (p.speedZ - carSpeed) * dt * 0.2;
+                } else {
+                    // Yanına gelip çarpmaya çalış
+                    p.position.z += (carSpeed - 110) * dt * 0.05;
+                    p.position.x += clamp(getawayCar.position.x - p.position.x, -dt * 5, dt * 5);
+                }
+
+                // Çarpışma / Hasar Kontrolü
+                if (Math.abs(p.position.x - getawayCar.position.x) < 2.2 && Math.abs(p.position.z - getawayCar.position.z) < 3.8) {
+                    takeDamage(12 * dt);
+                }
+            } else {
+                // Savrulma ve Takla Atma (Exploded)
+                p.position.z += (carSpeed * 0.8) * dt;
+                p.rotation.x += dt * 6;
+                p.rotation.y += dt * 8;
+                p.position.y += dt * 2;
+                if (p.position.z > 80 || p.position.y > 20) {
+                    scene.remove(p);
+                    policeSquad.splice(i, 1);
+                }
+            }
+        }
+
+        // Parçacık Fizikleri
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const pt = particles[i];
+            pt.position.addScaledVector(pt.vel, dt);
+            pt.vel.y -= 18 * dt; // Yerçekimi
+            if (pt.position.y <= 0) {
+                scene.remove(pt);
+                particles.splice(i, 1);
+            }
+        }
+
+        // Kamera Takibi (Dinamik Kovalama Açısı)
+        const camTarget = new THREE.Vector3(getawayCar.position.x * 0.5, 3.8, getawayCar.position.z + 9.5);
+        camera.position.lerp(camTarget, Math.min(1, dt * 6));
+        camera.lookAt(getawayCar.position.x * 0.8, 1.2, getawayCar.position.z - 15);
+
+        // HUD Güncelleme
+        if ($("cTimer")) $("cTimer").textContent = "⏱ " + fmtTime(timeLeft);
+        if ($("cDistance")) $("cDistance").textContent = "🛣 " + Math.floor(distanceCovered) + " M";
+        if ($("cCarHpText")) $("cCarHpText").textContent = Math.ceil(carHp) + "%";
+        const hpBar = $("cCarHpBar") ? $("cCarHpBar").firstElementChild : null;
+        if (hpBar) {
+            hpBar.style.width = carHp + "%";
+            hpBar.style.background = carHp > 50 ? "#22c55e" : carHp > 25 ? "#f59e0b" : "#ef4444";
+        }
+        if ($("cSpeedText")) $("cSpeedText").textContent = Math.floor(carSpeed);
+
+        // Ağ Senkronizasyonu (Relay)
+        netSyncTimer += dt;
+        if (netSyncTimer > 0.066) {
+            netSyncTimer = 0;
+            if (isDriver) {
+                net.send({ k: "chase_drive", x: Math.round(carX * 100) / 100, spd: Math.round(carSpeed) });
+            }
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    raf = requestAnimationFrame(frame);
+
+    return {
+        onRelay(from, d) {
+            if (d.k === "chase_drive") {
+                if (!isDriver) {
+                    carX = d.x;
+                    carSpeed = d.spd;
+                }
+            } else if (d.k === "chase_role_swap") {
+                if (d.driverId === myId) {
+                    isDriver = true;
+                    isGunner = (players.length === 1);
+                } else if (d.driverId) {
+                    isDriver = false;
+                    isGunner = true;
+                }
+                updateRoleDisplay();
+            } else if (d.k === "chase_hit") {
+                const target = policeSquad[d.targetId];
+                if (target) {
+                    target.hp = d.hp;
+                    if (target.hp <= 0 && target.alive) destroyPoliceCruiser(target);
+                }
+            }
+        },
+        onRoomState(s) {},
+        destroy() {
+            destroyed = true;
+            cancelAnimationFrame(raf);
+            cleanups.forEach(f => f());
+            timers.forEach(clearTimeout);
+            renderer.dispose();
+            $("chaseGame").classList.add("hidden");
+            if (xh) xh.style.display = "none";
+        }
+    };
+}
+
+// ===================================================================
+//  TOPLU OYLAMA SİSTEMİ (Disguised Route Voting)
+// ===================================================================
+let routeVoteModal = null;
+let myRouteVote = null;
+let routeVotes = { chase: 0, silent: 0 };
+let votedPlayerIds = new Set();
+let pcCurrentNet = null;
+
+// ===================================================================
+//  HİKAYELİ KAÇIŞ ROTASI SEÇİMİ:
+//  A) Atölye & Tünel (Demir kesme, sessiz sızma)
+//  C) Cezaevi İsyanı (Kargaşa, gardiyanları dağıtma)
+// ===================================================================
+const ESCAPE_PLANS = [
+    {
+        id: "plan_workshop",
+        code: "PLAN A: ATÖLYE & HAVALANDIRMA TÜNELİ",
+        desc: "Çamaşırhane arkasındaki bakım tünelinin ızgarasını kesip ana buhar boruları üzerinden tahliye olma rotası. Gardiyan şüphe üçgenini sıfırda tutmak zorundasınız.",
+        reward: "Sessiz Kaçış Avantajı"
+    },
+    {
+        id: "plan_riot",
+        code: "PLAN C: AVLUDA PLANLI İSYAN & KAOS",
+        desc: "Yemekhane çıkışında iki rakip çete arasında bilerek yangın ve kavga başlatıp gardiyanların tüm dikkatini ana avluya çekerek servis kapısından yarma.",
+        reward: "Hızlı Kaçış & Dağıtılmış Gardiyanlar"
+    }
+];
+
+function showDisguisedRouteVote(net) {
+    pcCurrentNet = net;
+    myRouteVote = null;
+    routeVotes = { workshop: 0, riot: 0 };
+    votedPlayerIds.clear();
+
+    if (!routeVoteModal) {
+        routeVoteModal = document.createElement("div");
+        routeVoteModal.id = "routeVoteModal";
+        document.body.appendChild(routeVoteModal);
+    }
+
+    renderRouteVoteModal();
+    routeVoteModal.style.display = "flex";
+}
+
+function renderRouteVoteModal() {
+    if (!routeVoteModal) return;
+    const totalPlayers = (pcCurrentNet && pcCurrentNet.state() && pcCurrentNet.state().players) ? pcCurrentNet.state().players.length : 1;
+    const voteCount = votedPlayerIds.size;
+
+    routeVoteModal.innerHTML = `
+        <div class="routeVoteBox">
+            <div class="routeVoteTitle">KAÇIŞ PROTOKOLÜ VE ROTA KARARI</div>
+            <p class="routeVoteSub">Ana hücre bloğu kilitleri çözüldü. Dış duvara varmak için ekibin hangi yöntemi kullanacağını oylayın.<br>Çoğunluğun kararı görevin bir sonraki aşamasını belirler.</p>
+
+            <div class="routeGrid">
+                <!-- ATÖLYE & TÜNEL -->
+                <div class="routeCard ${myRouteVote === 'workshop' ? 'voted' : ''}" onclick="castRouteVote('workshop')">
+                    <h3>${ESCAPE_PLANS[0].code}</h3>
+                    <div class="rMeta">GİZLİ SIZMA · DEMİR KESME · BUHAR BORULARI</div>
+                    <p>${ESCAPE_PLANS[0].desc}</p>
+                    <span class="routeVotesTag">Oy: ${routeVotes.workshop || 0} Mahkûm</span>
+                </div>
+
+                <!-- AVLUDA İSYAN -->
+                <div class="routeCard ${myRouteVote === 'riot' ? 'voted' : ''}" onclick="castRouteVote('riot')">
+                    <h3>${ESCAPE_PLANS[1].code}</h3>
+                    <div class="rMeta">KAOS STRATEJİSİ · YANGIN · DİKKAT DAĞITMA</div>
+                    <p>${ESCAPE_PLANS[1].desc}</p>
+                    <span class="routeVotesTag">Oy: ${routeVotes.riot || 0} Mahkûm</span>
+                </div>
+            </div>
+
+            <div class="routeStatus">Oylama Durumu: ${voteCount} / ${totalPlayers} Mahkûm Oy Kullandı</div>
+        </div>
+    `;
+}
+
+window.castRouteVote = function(route) {
+    myRouteVote = route;
+    votedPlayerIds.add(pcCurrentNet.myId());
+    routeVotes[route] = (routeVotes[route] || 0) + 1;
+
+    renderRouteVoteModal();
+    if (pcCurrentNet) {
+        pcCurrentNet.send({ k: "route_vote", route, voter: pcCurrentNet.myId() });
+    }
+    checkRouteVoteCompletion();
+};
+
+function checkRouteVoteCompletion() {
+    const totalPlayers = (pcCurrentNet && pcCurrentNet.state() && pcCurrentNet.state().players) ? pcCurrentNet.state().players.length : 1;
+    if (votedPlayerIds.size >= totalPlayers || totalPlayers <= 1) {
+        setTimeout(() => {
+            if (routeVoteModal) routeVoteModal.style.display = "none";
+            const winner = (routeVotes.riot || 0) > (routeVotes.workshop || 0) ? "riot" : "workshop";
+            if (winner === "riot") {
+                toast("PLAN C DEVREYE GİRDİ: Avluda isyan patlak verdi! Gardiyanlar dağıldı!");
+            } else {
+                toast("PLAN A DEVREYE GİRDİ: Atölye havalandırmasına sızıldı!");
+            }
+            // 3D Kaçış Aracı ve Çatışma aşamasına intikal et
+            currentGame = start3DPoliceChase(pcCurrentNet);
+        }, 800);
+    }
+}
+
+// showEnd Kancasını Güncelle: Kaçış tamamlandığında oylama penceresi açılsın
+const pcOriginalShowEnd = showEnd;
+showEnd = function(net, title, text, color) {
+    if (String(title).includes("KAÇTINIZ")) {
+        showDisguisedRouteVote(net);
+        return;
+    }
+    pcOriginalShowEnd(net, title, text, color);
+};
+
+// StartPrison sarmalayıcısına route oylama relay yakalayıcısı ekle
+const pcPreviousStartPrison = startPrison;
+startPrison = function(net) {
+    pcNet = net;
+    pcSelect();
+    const handleOrig = pcPreviousStartPrison(net);
+    return {
+        ...handleOrig,
+        onRelay(from, data) {
+            if (data && data.k === "route_vote") {
+                routeVotes[data.route] = (routeVotes[data.route] || 0) + 1;
+                votedPlayerIds.add(data.voter);
+                renderRouteVoteModal();
+                checkRouteVoteCompletion();
+                return;
+            }
+            if (handleOrig.onRelay) handleOrig.onRelay(from, data);
+        }
+    };
+};
+
 
 connect();
 </script>
