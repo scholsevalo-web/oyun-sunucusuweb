@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Web Oyuncum</title>
 <!-- Three.js ve GLTF / GLB Loader: Gerçekçi 3D Grafikler ve Harici 3D Model Bağlantısı -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -77,6 +77,25 @@ input:focus { outline: none; border-color: #38bdf8; }
 #fScope { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 12; background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 33vmin, rgba(0,0,0,0.97) 35vmin); }
 #fScope::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(0,0,0,0.85); }
 #fScope::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.85); }
+#fpsCanvas { touch-action: none; }
+
+/* ---- FPS MOBİL KONTROLLER (çapraz platform) ---- */
+#fMobileControls { position: absolute; inset: 0; pointer-events: none; z-index: 40; display: none; }
+#fMobStick { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(130px + env(safe-area-inset-bottom)); width: 124px; height: 124px; border-radius: 50%; border: 2px solid rgba(148,163,184,0.5); background: rgba(15,23,42,0.45); pointer-events: auto; touch-action: none; }
+#fMobKnob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border-radius: 50%; background: rgba(56,189,248,0.75); border: 2px solid #0ea5e9; transform: translate(-50%,-50%); pointer-events: none; }
+#fMobBtns { position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(110px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2, 66px); grid-auto-rows: 54px; gap: 10px; pointer-events: none; }
+#fMobBtns button { pointer-events: auto; border: 1px solid #475569; background: rgba(15,23,42,0.82); color: #fff; border-radius: 14px; font-size: 20px; font-weight: 900; touch-action: none; }
+#fMobBtns button:active { background: #38bdf8; color: #020617; }
+#fMobBtns button.on { background: #22c55e; color: #020617; }
+#fMobFire { grid-column: 2; grid-row: 1 / span 2; height: 100%; font-size: 28px !important; background: rgba(220,38,38,0.85) !important; border-color: #ef4444 !important; }
+#fMobMenu { grid-column: 1 / span 2; grid-row: 3; font-size: 15px !important; }
+@media (pointer: coarse) {
+    #fMobileControls { display: block; }
+    .routeGrid { grid-template-columns: 1fr; }
+    .routeVoteBox, .wBox { max-height: 92vh; overflow-y: auto; }
+    #chatMessages { max-height: 60px; }
+    #chatContainer { width: calc(100vw - 20px); }
+}
 
 
 .modes { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -388,14 +407,25 @@ input:focus { outline: none; border-color: #38bdf8; }
         <div id="fScore" class="pill"></div>
         <div id="fKillfeed"></div>
         <div id="fBanner"></div>
+        <div id="fMobileControls">
+            <div id="fMobStick"><div id="fMobKnob"></div></div>
+            <div id="fMobBtns">
+                <button id="fMobJump">⤒</button>
+                <button id="fMobCrouch">⬇</button>
+                <button id="fMobFire">🔥</button>
+                <button id="fMobAds">🎯</button>
+                <button id="fMobReload">🔄</button>
+                <button id="fMobMenu">🔫 SİLAHLAR</button>
+            </div>
+        </div>
         <div id="fSpec"></div>
         <div id="fHp" class="pill"><span id="fHpText">100</span><div id="fHpBar"><div></div></div></div>
         <div id="fAmmo" class="pill"><b id="fAmmoText">30</b><small id="fWeaponText">Tüfek</small></div>
         <div id="fLock" class="overlay">
             <h2>ÇATIŞMA</h2>
             <p>Oynamak için tıkla.<br>
-            <b>WASD</b> hareket • <b>Fare</b> nişan • <b>Sol tık</b> ateş • <b>R</b> şarjör • <b>1/2</b> silah • <b>Shift</b> yavaş yürü (daha isabetli)<br>
-            Kafadan vuruş çok daha fazla hasar verir. Esc ile fareyi serbest bırakırsın.</p>
+            <b>WASD</b> hareket • <b>Fare</b> nişan • <b>Sol tık</b> ateş • <b>R</b> şarjör • <b>1-5/B</b> silahlar • <b>Sağ tık</b> dürbün • <b>Space</b> zıpla • <b>C</b> çömel • <b>Shift</b> koş<br>
+            <b>📱 Mobil:</b> sol joystick yürü • ekranı sürükle nişan al • sağdaki butonları kullan</p>
         </div>
     </div>
 
@@ -2117,15 +2147,16 @@ function startFps(net) {
     $("fpsGame").classList.remove("hidden");
     $("fpsRadar").style.display = "none";
 
+    const IS_MOBILE = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
     // ---------- RENDERER / SAHNE ----------
     if (!window.THREE) { toast("Three.js yüklenemedi!"); return { onRelay() {}, onRoomState() {}, destroy() {} }; }
     let renderer;
     try {
-        renderer = new THREE.WebGLRenderer({ canvas: $("fpsCanvas"), antialias: true });
+        renderer = new THREE.WebGLRenderer({ canvas: $("fpsCanvas"), antialias: !IS_MOBILE, powerPreference: "high-performance" });
     } catch (e) { toast("WebGL desteklenmiyor!"); return { onRelay() {}, onRoomState() {}, destroy() {} }; }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.5 : 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = IS_MOBILE ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
     if (THREE.sRGBEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
     if (THREE.ACESFilmicToneMapping !== undefined) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; }
 
@@ -2335,7 +2366,6 @@ function startFps(net) {
         };
     }
 
-    const others = {};
     function mkOther(p) {
         const ch = buildCharacter(p.team);
         scene.add(ch.grp);
@@ -2348,6 +2378,8 @@ function startFps(net) {
         return o;
     }
 
+    const others = {};
+    rs0.players.forEach((p) => { if (p.id !== myId) others[p.id] = mkOther(p); });
     function setCorpse(o) {
         o.alive = false;
         o.ch.grp.rotation.x = -Math.PI / 2;
@@ -2683,6 +2715,7 @@ function startFps(net) {
 
     // ---------- GİRİŞ (fare + klavye) ----------
     const lockEl = $("fLock");
+    if (IS_MOBILE) lockEl.style.display = "none"; // mobilde pointer lock yok
     on(lockEl, "click", () => { $("fpsCanvas").requestPointerLock(); actx(); });
     on($("fpsCanvas"), "click", () => { if (!locked && !inMenu) $("fpsCanvas").requestPointerLock(); });
     on(document, "pointerlockchange", () => {
@@ -2717,6 +2750,75 @@ function startFps(net) {
     });
     on(window, "keyup", (e) => { keys[e.code] = false; });
     on(window, "blur", () => { for (const k in keys) keys[k] = false; fireHeld = false; });
+
+    // ---------- MOBİL KONTROLLER (çapraz platform) ----------
+    const mob = { mx: 0, mz: 0, lookId: -1, lastX: 0, lastY: 0 };
+    if (IS_MOBILE) {
+        const stick = $("fMobStick"), knob = $("fMobKnob");
+        let stickId = -1;
+        const stickCenter = { x: 0, y: 0 };
+        const setKnob = (dx, dy) => { knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; };
+        on(stick, "touchstart", (e) => {
+            e.preventDefault();
+            const t = e.changedTouches[0];
+            stickId = t.identifier;
+            const r = stick.getBoundingClientRect();
+            stickCenter.x = r.left + r.width / 2; stickCenter.y = r.top + r.height / 2;
+        }, { passive: false });
+        on(stick, "touchmove", (e) => {
+            e.preventDefault();
+            for (const t of e.changedTouches) {
+                if (t.identifier !== stickId) continue;
+                const R = 44;
+                let dx = t.clientX - stickCenter.x, dy = t.clientY - stickCenter.y;
+                const d = Math.hypot(dx, dy);
+                if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+                setKnob(dx, dy);
+                mob.mx = dx / R; mob.mz = dy / R;
+            }
+        }, { passive: false });
+        const stickEnd = (e) => {
+            for (const t of e.changedTouches) {
+                if (t.identifier !== stickId) continue;
+                stickId = -1; mob.mx = 0; mob.mz = 0; setKnob(0, 0);
+            }
+        };
+        on(stick, "touchend", stickEnd);
+        on(stick, "touchcancel", stickEnd);
+
+        // bakış: oyun ekranında sürükle (sağ yarı)
+        const cvsEl = $("fpsCanvas");
+        on(cvsEl, "touchstart", (e) => {
+            actx();
+            const t = e.changedTouches[0];
+            if (t.clientX < window.innerWidth * 0.35 || mob.lookId !== -1) return;
+            mob.lookId = t.identifier; mob.lastX = t.clientX; mob.lastY = t.clientY;
+        }, { passive: true });
+        on(cvsEl, "touchmove", (e) => {
+            for (const t of e.changedTouches) {
+                if (t.identifier !== mob.lookId) continue;
+                const sens = self.ads && self.cur === 2 ? 0.0035 : 0.0075;
+                self.yaw -= (t.clientX - mob.lastX) * sens;
+                self.pitch = clamp(self.pitch - (t.clientY - mob.lastY) * sens, -1.45, 1.45);
+                mob.lastX = t.clientX; mob.lastY = t.clientY;
+            }
+        }, { passive: true });
+        const lookEnd = (e) => { for (const t of e.changedTouches) if (t.identifier === mob.lookId) mob.lookId = -1; };
+        on(cvsEl, "touchend", lookEnd);
+        on(cvsEl, "touchcancel", lookEnd);
+
+        const hold = (id, down, up) => {
+            const el = $(id);
+            on(el, "touchstart", (e) => { e.preventDefault(); down(); }, { passive: false });
+            if (up) { on(el, "touchend", up); on(el, "touchcancel", up); }
+        };
+        hold("fMobFire", () => { fireHeld = true; semiReady = true; }, () => { fireHeld = false; });
+        hold("fMobJump", () => { keys.Space = true; }, () => { keys.Space = false; });
+        hold("fMobCrouch", () => { keys.KeyC = true; }, () => { keys.KeyC = false; });
+        hold("fMobAds", () => { self.ads = true; $("fMobAds").classList.add("on"); }, () => { self.ads = false; $("fMobAds").classList.remove("on"); });
+        hold("fMobReload", () => startReload());
+        hold("fMobMenu", () => toggleWeaponMenu());
+    }
 
     // ---------- SİLAH MENÜSÜ (B) ----------
     let wMenu = null;
@@ -2851,7 +2953,7 @@ function startFps(net) {
         muzzle.material.opacity = Math.max(0, muzzle.material.opacity - dt * 22);
         muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 40);
         if (now - self.lastShotAt > 140) self.burst = Math.max(0, self.burst - dt * 12);
-        const canFire = self.alive && locked && !inMenu && S.phase === "live" && !self.reloadEnd && fireHeld && now >= self.nextShot;
+        const canFire = self.alive && (locked || IS_MOBILE) && !inMenu && S.phase === "live" && !self.reloadEnd && fireHeld && now >= self.nextShot;
         if (canFire && (!w.auto ? semiReady : true)) {
             if (self.ammo[self.cur] <= 0) { startReload(); return; }
             semiReady = false;
@@ -2900,14 +3002,16 @@ function startFps(net) {
     let specScope = null;
     function updateSelf(dt) {
         self.moving = false;
-        const can = locked && self.alive && S.phase !== "freeze" && S.phase !== "vote" && S.phase !== "over" && builtMapId >= 0;
+        const can = (locked || IS_MOBILE) && self.alive && S.phase !== "freeze" && S.phase !== "vote" && S.phase !== "over" && builtMapId >= 0;
         let f = 0, s = 0;
         if (can) {
             f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
             s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+            f += -mob.mz; s += mob.mx;
+            f = clamp(f, -1, 1); s = clamp(s, -1, 1);
         }
         self.crouch = can && (keys.KeyC || keys.ControlLeft);
-        self.sprint = can && (keys.ShiftLeft || keys.ShiftRight) && f > 0 && !self.crouch;
+        self.sprint = can && ((keys.ShiftLeft || keys.ShiftRight || (IS_MOBILE && f > 0.92)) && f > 0 && !self.crouch);
         const spd = self.crouch ? CROUCH_SP : self.sprint ? RUN : WALK;
         let wishX = 0, wishZ = 0;
         if (f || s) {
@@ -3065,7 +3169,7 @@ function startFps(net) {
         setHtml("fBanner", big ? `<b style="color:${col}">${big}</b><span>${sub}</span>` : "");
         const spec = !self.alive ? specTarget() : null;
         setText("fSpec", !self.alive ? (spec ? "Öldün — " + names[spec] + " izleniyor" : "Öldün") : "");
-        $("xh").style.display = self.alive && locked && !inMenu ? "block" : "none";
+        $("xh").style.display = self.alive && (locked || IS_MOBILE) && !inMenu ? "block" : "none";
         const gapPx = 3 + currentSpread() * 1400 * (1 - self.adsCur * 0.8);
         $("xh").style.setProperty("--gap", gapPx.toFixed(1) + "px");
     }
