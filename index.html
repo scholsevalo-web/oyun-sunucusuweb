@@ -634,8 +634,17 @@ function onRoomState(s) {
     }
 
     if (localAudioStream && s.players) {
+        // odadan ayrılanların bağlantılarını temizle
+        for (const pid in peers) {
+            if (!s.players.some(p => p.id === pid)) {
+                try { peers[pid].close(); } catch (e) {}
+                delete peers[pid];
+                const a = document.getElementById("audio_" + pid);
+                if (a) { a.remove(); }
+            }
+        }
         s.players.forEach(p => {
-            if (p.id !== myId && !peers[p.id]) createPeer(p.id, true);
+            if (p.id !== myId && !peers[p.id]) createPeer(p.id, voiceIAmInitiator(p.id));
         });
     }
 }
@@ -2164,8 +2173,8 @@ const FPS_MAPS = [
         sunC: 0xffb070, sunI: 1.0, sunP: [-30, 42, 18],
         floor: 0x5c5f66, wall: 0x8f8577, crate: 0x7a4f35, deco: 0x46433d,
         spawns: [
-            [[-6, -29], [-2, -29], [2, -29], [6, -29], [0, -25]],
-            [[6, 29], [2, 29], [-2, 29], [-6, 29], [0, 25]],
+            [[-11, -17], [-9, -17], [9, -17], [11, -17], [0, -8]],
+            [[11, 17], [9, 17], [-9, 17], [-11, 17], [0, 8]],
         ],
         build(b) {
             b.wall(-18, -17, 12, 10, 8); b.wall(18, -17, 12, 10, 8);
@@ -3571,6 +3580,17 @@ function appendChat(from, text, team) {
 let localAudioStream = null;
 const peers = {};
 window.pcVoiceRemote = window.pcVoiceRemote || {};
+// glare önleme: offer yalnızca ID'si küçük taraftan gelir (her iki taraf da mikrofonu açsa bile)
+function voiceIAmInitiator(peerId) { return String(myId) < String(peerId); }
+// mobil autoplay: kullanıcı etkileşimi gelince bekleyen sesleri başlat
+const pendingAudios = [];
+function tryPlayAudio(a) {
+    const p = a.play();
+    if (p && p.catch) p.catch(() => { if (!pendingAudios.includes(a)) pendingAudios.push(a); });
+}
+document.addEventListener("pointerdown", () => {
+    while (pendingAudios.length) { const a = pendingAudios.pop(); tryPlayAudio(a); }
+}, { passive: true });
 
 // Yakındaki oyuncu net duyulur; uzaklaştıkça ses azalır. Arada duvar varsa
 // örnekleme sistemi sesi yaklaşık %82 kısar.
@@ -3605,8 +3625,10 @@ if ($("micBtn")) {
                 toast("Mikrofon açıldı.");
                 
                 if (roomState) {
+                    // mikrofon sonradan açıldıysa eski bağlantılar sesi taşımaz — hepsini taze kur
+                    for (const pid in peers) { try { peers[pid].close(); } catch (e) {} delete peers[pid]; }
                     roomState.players.forEach(p => {
-                        if (p.id !== myId) createPeer(p.id, true);
+                        if (p.id !== myId) createPeer(p.id, voiceIAmInitiator(p.id));
                     });
                 }
             } catch (e) {
@@ -3625,7 +3647,15 @@ if ($("micBtn")) {
 function createPeer(peerId, isInitiator) {
     if (peers[peerId]) return peers[peerId];
     
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    const pc = new RTCPeerConnection({
+        iceServers: [
+            { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+            // ücretsiz topluluk TURN servisi — mobil veri ↔ ev ağı bağlantıları için şart
+            { urls: ["turn:openrelay.metered.ca:80", "turn:openrelay.metered.ca:443"], username: "openrelayproject", credential: "openrelayproject" },
+            { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
+        ],
+        iceCandidatePoolSize: 4,
+    });
     peers[peerId] = pc;
 
     if (localAudioStream) {
@@ -3645,6 +3675,7 @@ function createPeer(peerId, isInitiator) {
             document.body.appendChild(audio);
         }
         audio.srcObject = e.streams[0];
+        tryPlayAudio(a);
         if (!audio._pcVoiceTimer) audio._pcVoiceTimer = setInterval(() => pcSetVoiceVolume(audio, peerId), 150);
     };
 
