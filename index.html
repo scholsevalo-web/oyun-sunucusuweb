@@ -62,7 +62,22 @@ input:focus { outline: none; border-color: #38bdf8; }
 .tsz-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .tcount { float: right; font-size: 12px; background: #0f172a; border-radius: 6px; padding: 2px 8px; color: #e2e8f0; }
 
-/* FPS cepheanelik menüsü */
+/* FPS harita oylaması + cephanenelik + dürbün */
+#fpsVoteModal { position: fixed; inset: 0; background: rgba(2,6,23,0.94); z-index: 99999; display: none; align-items: center; justify-content: center; padding: 20px; }
+#wMenu { position: fixed; inset: 0; background: rgba(2,6,23,0.92); z-index: 99998; display: none; align-items: center; justify-content: center; padding: 20px; }
+.wBox { width: min(900px, 94vw); background: linear-gradient(135deg,#0f172a,#020617); border: 2px solid #334155; border-radius: 16px; padding: clamp(20px,4vw,36px); box-shadow: 0 25px 60px rgba(0,0,0,0.85); text-align: center; }
+.wGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 8px; }
+.wCard { background: #1e293b; border: 2px solid #475569; border-radius: 12px; padding: 16px 12px; cursor: pointer; transition: 0.15s; }
+.wCard:hover { border-color: #38bdf8; transform: translateY(-2px); }
+.wCard.sel { border-color: #22c55e; background: rgba(34,197,94,0.12); box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
+.wCard .ico { font-size: 30px; margin-bottom: 6px; }
+.wCard h3 { font-size: 15px; color: #f8fafc; margin-bottom: 6px; }
+.wCard small { display: block; font-size: 12px; color: #94a3b8; line-height: 1.4; margin-bottom: 8px; }
+.wCard .ammo { font-size: 11px; color: #facc15; font-weight: 700; }
+#fScope { position: absolute; inset: 0; pointer-events: none; display: none; z-index: 12; background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 33vmin, rgba(0,0,0,0.97) 35vmin); }
+#fScope::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(0,0,0,0.85); }
+#fScope::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,0.85); }
+
 
 .modes { display: flex; gap: 8px; margin-bottom: 12px; }
 .mode-chip { flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px; border: 1px solid #334155; font-size: 13px; font-weight: 700; color: #64748b; }
@@ -2530,7 +2545,7 @@ function startFps(net) {
     }
 
     // ---------- AĞ ----------
-    function commit() { net.send({ k: "S", S }); lastBroadcast = performance.now(); }
+    function commit() { net.send({ k: "S", S }); afterState(); lastBroadcast = performance.now(); }
     function afterState() {
         if (S.mapId !== null && S.mapId !== builtMapId) buildMap(S.mapId);
         if (S.phase === "vote") { showVoteModal(); }
