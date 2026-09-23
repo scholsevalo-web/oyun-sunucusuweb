@@ -55,7 +55,15 @@ input:focus { outline: none; border-color: #38bdf8; }
 .game-card .meta { font-size: 12px; color: #facc15; font-weight: 700; margin-bottom: 6px; }
 .game-card small { display: block; font-size: 12px; color: #94a3b8; line-height: 1.4; }
 .hint { font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.4; text-align: left; }
-#fpsPanel { margin-top: 14px; text-align: left; background: #0f172a; border-radius: 12px; padding: 14px; }
+/* boyut +/− butonları */
+.tsz-btns { display: flex; gap: 8px; margin-top: 8px; }
+.tsz-btn { flex: 1; background: #0f172a; color: #e2e8f0; border: 1px solid #475569; border-radius: 8px; font-size: 18px; font-weight: 900; padding: 6px 0; cursor: pointer; }
+.tsz-btn:hover:not(:disabled) { border-color: #38bdf8; color: #38bdf8; }
+.tsz-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.tcount { float: right; font-size: 12px; background: #0f172a; border-radius: 6px; padding: 2px 8px; color: #e2e8f0; }
+
+/* FPS cepheanelik menüsü */
+
 .modes { display: flex; gap: 8px; margin-bottom: 12px; }
 .mode-chip { flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px; border: 1px solid #334155; font-size: 13px; font-weight: 700; color: #64748b; }
 .mode-chip small { display: block; font-size: 11px; font-weight: 600; }
@@ -280,16 +288,29 @@ input:focus { outline: none; border-color: #38bdf8; }
         <div class="game-card" id="gcFps" data-game="fps">
             <div class="ico">🔫</div>
             <h3>Çatışma (FPS)</h3>
-            <div class="meta">1v1 • 1v2 • 2v2</div>
-            <small>Valorant / CS tarzı, raundlu takım çatışması. İlk 4 raundu alan kazanır.</small>
+            <div class="meta">2-10 kişi • Tam 3D • Takım savaşı</div>
+            <small>Valorant / CS tarzı, raundlu takım çatışması. Harita oylaması, 5 silah, ilk 4 raundu alan kazanır.</small>
         </div>
     </div>
 
     <div id="fpsPanel" class="hidden">
-        <div class="modes" id="modeChips"></div>
         <div class="teams">
-            <div class="team-col t0"><h4>🔵 MAVİ TAKIM</h4><div id="team0"></div></div>
-            <div class="team-col t1"><h4>🔴 KIRMIZI TAKIM</h4><div id="team1"></div></div>
+            <div class="team-col t0">
+                <h4>🔵 MAVİ TAKIM <span class="tcount" id="tsize0">1</span></h4>
+                <div id="team0"></div>
+                <div class="tsz-btns">
+                    <button class="tsz-btn" id="tsizeMinus0" title="Mavi takım slotunu küçült">−</button>
+                    <button class="tsz-btn" id="tsizePlus0" title="Mavi takım slotunu büyüt">+</button>
+                </div>
+            </div>
+            <div class="team-col t1">
+                <h4>🔴 KIRMIZI TAKIM <span class="tcount" id="tsize1">1</span></h4>
+                <div id="team1"></div>
+                <div class="tsz-btns">
+                    <button class="tsz-btn" id="tsizeMinus1" title="Kırmızı takım slotunu küçült">−</button>
+                    <button class="tsz-btn" id="tsizePlus1" title="Kırmızı takım slotunu büyüt">+</button>
+                </div>
+            </div>
         </div>
         <button class="btn-small" id="switchTeamBtn">Takım Değiştir</button>
         <p class="hint" id="fpsHint"></p>
@@ -562,18 +583,21 @@ $("displayCode").onclick = () => {
 $("leaveBtn").onclick = () => wsSend({ action: "leave" });
 $("switchTeamBtn").onclick = () => wsSend({ action: "switch_team" });
 $("startBtn").onclick = () => wsSend({ action: "start_game" });
+[["tsizePlus0", 0, 1], ["tsizeMinus0", 0, -1], ["tsizePlus1", 1, 1], ["tsizeMinus1", 1, -1]].forEach(([id, t, d]) => {
+    $(id).onclick = () => wsSend({ action: "set_team_size", team: t, delta: d });
+});
 document.querySelectorAll(".game-card").forEach((el) => {
     el.onclick = () => {
         if (roomState && roomState.host === myId) wsSend({ action: "select_game", game: el.dataset.game });
     };
 });
 
-const MODE_INFO = [["1v1", 2], ["1v2", 3], ["2v2", 4]];
+
 
 function renderLobby(s) {
     const isHost = s.host === myId;
     $("displayCode").textContent = s.code;
-    $("playerCountText").textContent = s.players.length + "/4 Kişi";
+    $("playerCountText").textContent = s.players.length + "/" + (s.maxPlayers || 10) + " Kişi";
 
     const list = $("playerList");
     list.innerHTML = "";
@@ -604,20 +628,28 @@ function renderLobby(s) {
     const showFps = s.game === "fps";
     $("fpsPanel").classList.toggle("hidden", !showFps);
     if (showFps) {
-        $("modeChips").innerHTML = MODE_INFO.map(([m, n]) =>
-            `<div class="mode-chip ${s.mode === m ? "active" : ""}">${m}<small>${n} kişi</small></div>`).join("");
         ["0", "1"].forEach((t) => {
-            $("team" + t).innerHTML = "";
-            s.players.filter((p) => String(p.team) === t).forEach((p) => {
+            const size = s.teamSizes ? s.teamSizes[t] : 1;
+            $("tsize" + t).textContent = size;
+            $("tsizePlus" + t).disabled = !isHost || size >= 5;
+            $("tsizeMinus" + t).disabled = !isHost || size <= 1;
+            const slots = $("team" + t);
+            slots.innerHTML = "";
+            const members = s.players.filter((p) => String(p.team) === t);
+            members.forEach((p) => {
                 const d = document.createElement("div"); d.className = "pl";
                 d.textContent = p.name + (p.id === myId ? " (sen)" : "");
-                $("team" + t).appendChild(d);
+                slots.appendChild(d);
             });
+            for (let i = members.length; i < size; i++) {
+                const d = document.createElement("div"); d.className = "pl"; d.style.opacity = "0.35";
+                d.textContent = "— boş slot —";
+                slots.appendChild(d);
+            }
         });
-        $("fpsHint").textContent = s.players.length < 2
-            ? "Mod oyuncu sayısına göre otomatik seçilir: 2 kişi → 1v1, 3 kişi → 1v2, 4 kişi → 2v2."
-            : `Mod: ${s.mode}. Mod oyuncu sayısına göre otomatik seçilir.` +
-              (s.mode === "1v2" ? " Tek kişilik takım +50 can alır." : "");
+        const botKalan = (s.maxPlayers || 10) - s.players.length - (s.teamSizes ? (s.teamSizes[0] + s.teamSizes[1]) : 2) + s.players.length;
+        $("fpsHint").textContent =
+            `Takım boyutlarını +/- ile ayarla (her takım en fazla 5, toplam ${s.maxPlayers || 10} kişi). Harita oy ile seçilir, B ile cepheanelik açılır.`;
     }
 
     // Başlat butonu
@@ -1967,31 +1999,97 @@ function startPrison(net) {
 }
 
 // ===================================================================
-//  OYUN 2: ÇATIŞMA (FPS)
+//  OYUN 2: ÇATIŞMA — TAM 3D FPS (THREE.JS)
+//  5 silah (B menüsü) • 3 harita + oylama • animasyonlu 3D karakterler
+//  Gölgeler, tracer mermiler, kıvılcım efektleri, ADS dürbün, zıplama
 // ===================================================================
-const FPS_MAP = [
-    "################################",
-    "#..............................#",
-    "#..............................#",
-    "#...CC....................CC...#",
-    "#...CC......M......M......CC...#",
-    "####........M......M........####",
-    "#aa#.....MM..........MM.....#bb#",
-    "#a......MM............MM......b#",
-    "#aa#.....C............C.....#bb#",
-    "#..............................#",
-    "####..CC................CC..####",
-    "#.....CC.......CC.......CC.....#",
-    "#.....CC.......CC.......CC.....#",
-    "####..CC................CC..####",
-    "#..............................#",
-    "#aa#.....C............C.....#bb#",
-    "#a......MM............MM......b#",
-    "#aa#.....MM..........MM.....#bb#",
-    "####........M......M........####",
-    "#...CC......M......M......CC...#",
-    "#..............................#",
-    "################################"
+const FPS_WEAPONS = [
+    { name: "Tüfek",         icon: "🔫", dmg: 26,  head: 78,  rate: 105,  mag: 30,  reload: 2.0, auto: true,  spread: 0.011, recoil: 0.011, pellets: 1, zoom: 55, len: 0.62, desc: "Tam otomatik • dengeli • her duruma uygun" },
+    { name: "Tabanca",       icon: "🔫", dmg: 32,  head: 96,  rate: 230,  mag: 12,  reload: 1.4, auto: false, spread: 0.006, recoil: 0.030, pellets: 1, zoom: 60, len: 0.30, desc: "Tek atış • yüksek isabet • hızlı çekilme" },
+    { name: "Keskin Nişancı",icon: "🎯", dmg: 105, head: 240, rate: 1400, mag: 5,   reload: 2.9, auto: false, spread: 0.002, recoil: 0.060, pellets: 1, zoom: 24, len: 0.95, desc: "Tek atış öldürür • sağ tık dürbün • yavaş" },
+    { name: "Hafı Makineli", icon: "🧨", dmg: 21,  head: 52,  rate: 82,   mag: 100, reload: 3.6, auto: true,  spread: 0.019, recoil: 0.008, pellets: 1, zoom: 62, len: 0.80, desc: "100'lik şarjör • duvar arkası susturma" },
+    { name: "Pompalı",       icon: "💥", dmg: 13,  head: 28,  rate: 850,  mag: 6,   reload: 2.6, auto: false, spread: 0.045, recoil: 0.055, pellets: 8, zoom: 60, len: 0.55, desc: "8 saçma • yakında instankill • yakın mesafe" },
+];
+
+const FPS_MAPS = [
+    {
+        name: "Depo Bölgesi", icon: "🏭", day: true,
+        desc: "Konteynerler, uzun muhafız duvarları ve köşe kuleleri. Keskin nişancı cenneti.",
+        sky: 0x9ec8e8, fogD: 0.010, hemiS: 0xcfe4ff, hemiG: 0x4a5361, hemiI: 0.65,
+        sunC: 0xfff1d6, sunI: 1.25, sunP: [38, 60, 24],
+        floor: 0x7a7f88, wall: 0xa9b1bb, crate: 0xb0793f, deco: 0x565b64,
+        spawns: [
+            [[-29, -8], [-29, -3], [-29, 3], [-29, 8], [-29, -13]],
+            [[29, 8], [29, 3], [29, -3], [29, -8], [29, 13]],
+        ],
+        build(b) {
+            b.wall(0, -32.5, 66, 1, 6); b.wall(0, 32.5, 66, 1, 6);
+            b.wall(-32.5, 0, 1, 66, 6); b.wall(32.5, 0, 1, 66, 6);
+            b.wall(-14, 0, 10, 1.2, 4.5); b.wall(14, 0, 10, 1.2, 4.5);
+            b.wall(0, -8, 3, 3, 5); b.wall(0, 8, 3, 3, 5);
+            b.wall(-24, -24, 4, 4, 7); b.wall(24, -24, 4, 4, 7);
+            b.wall(-24, 24, 4, 4, 7); b.wall(24, 24, 4, 4, 7);
+            b.wall(-6, -16, 8, 1.2, 2.2); b.wall(6, 16, 8, 1.2, 2.2);
+            b.wall(-16, 12, 1.2, 8, 2.2); b.wall(16, -12, 1.2, 8, 2.2);
+            b.crate(-20, -10, 3.5, 3.5, 2.4); b.crate(-20, 10, 3.5, 3.5, 2.4);
+            b.crate(20, -10, 3.5, 3.5, 2.4); b.crate(20, 10, 3.5, 3.5, 2.4);
+            b.crate(0, -20, 5, 3, 1.6); b.crate(0, 20, 5, 3, 1.6);
+            b.crate(-10, 20, 3, 3, 3.2); b.crate(10, -20, 3, 3, 3.2);
+            b.crate(-27, -14, 2.5, 2.5, 1.4); b.crate(-27, 14, 2.5, 2.5, 1.4);
+            b.crate(27, -14, 2.5, 2.5, 1.4); b.crate(27, 14, 2.5, 2.5, 1.4);
+        },
+    },
+    {
+        name: "Sokak Çatışması", icon: "🌆", day: false,
+        desc: "Alacakaranlık sokak savaşı: binalar, arabalar ve merkezi meydan kontrolü.",
+        sky: 0xc98a5b, fogD: 0.013, hemiS: 0xffd9b0, hemiG: 0x3a2f28, hemiI: 0.6,
+        sunC: 0xffb070, sunI: 1.0, sunP: [-30, 42, 18],
+        floor: 0x5c5f66, wall: 0x8f8577, crate: 0x7a4f35, deco: 0x46433d,
+        spawns: [
+            [[-6, -29], [-2, -29], [2, -29], [6, -29], [0, -25]],
+            [[6, 29], [2, 29], [-2, 29], [-6, 29], [0, 25]],
+        ],
+        build(b) {
+            b.wall(-18, -17, 12, 10, 8); b.wall(18, -17, 12, 10, 8);
+            b.wall(-18, 17, 12, 10, 8); b.wall(18, 17, 12, 10, 8);
+            b.wall(0, -27, 16, 8, 7); b.wall(0, 27, 16, 8, 7);
+            b.wall(0, 0, 7, 7, 1.3); b.wall(0, 0, 3, 3, 3);
+            b.wall(0, -10, 6, 0.8, 1.1); b.wall(0, 10, 6, 0.8, 1.1);
+            b.wall(-14, 0, 0.8, 6, 1.1); b.wall(14, 0, 0.8, 6, 1.1);
+            b.car(-11, 6, 0x4a6fa5); b.car(11, -6, 0xa5494a);
+            b.car(-6, -13, 0x5a8a4a); b.car(6, 13, 0xb5924a);
+            b.crate(-24, 0, 3, 3, 2.0); b.crate(24, 0, 3, 3, 2.0);
+            b.crate(-9, -8, 2.2, 2.2, 1.5); b.crate(9, 8, 2.2, 2.2, 1.5);
+            b.crate(12, 20, 2.6, 2.6, 1.8); b.crate(-12, -20, 2.6, 2.6, 1.8);
+        },
+    },
+    {
+        name: "Gece Karargâhı", icon: "🌙", day: false,
+        desc: "Neon lambalarla aydınlanan gece üssü. Kapışma kapı ve koridorlarda döner.",
+        sky: 0x0a1020, fogD: 0.020, hemiS: 0x33415c, hemiG: 0x0c1018, hemiI: 0.55,
+        sunC: 0x9db8ff, sunI: 0.5, sunP: [-25, 50, -15], night: true,
+        floor: 0x232833, wall: 0x39404f, crate: 0x4e5a44, deco: 0x181c24,
+        spawns: [
+            [[-29, -6], [-29, 0], [-29, 6], [-29, -12], [-29, 12]],
+            [[29, 6], [29, 0], [29, -6], [29, 12], [29, -12]],
+        ],
+        build(b) {
+            b.wall(0, -32.5, 66, 1, 6); b.wall(0, 32.5, 66, 1, 6);
+            b.wall(-32.5, 0, 1, 66, 6); b.wall(32.5, 0, 1, 66, 6);
+            b.wall(-14, -11, 12, 1.2, 4.5); b.wall(14, -11, 12, 1.2, 4.5);
+            b.wall(-14, 11, 12, 1.2, 4.5); b.wall(14, 11, 12, 1.2, 4.5);
+            b.wall(0, 0, 5, 5, 4.5);
+            b.wall(-24, 0, 6, 14, 5); b.wall(24, 0, 6, 14, 5);
+            b.wall(-8, -22, 1.2, 10, 4); b.wall(8, 22, 1.2, 10, 4);
+            b.lamp(-16, -16, 0x66aaff); b.lamp(16, -16, 0x66aaff);
+            b.lamp(-16, 16, 0xff9955); b.lamp(16, 16, 0xff9955);
+            b.lamp(0, -20, 0x88ffcc); b.lamp(0, 20, 0x88ffcc);
+            b.crate(-10, 0, 2.4, 2.4, 1.3); b.crate(-10, 2.6, 2.4, 2.4, 2.6);
+            b.crate(10, 0, 2.4, 2.4, 1.3); b.crate(10, -2.6, 2.4, 2.4, 2.6);
+            b.crate(0, -16, 3, 2.2, 1.7); b.crate(0, 16, 3, 2.2, 1.7);
+            b.crate(-20, 22, 2.6, 2.6, 2.2); b.crate(20, -22, 2.6, 2.6, 2.2);
+        },
+    },
 ];
 
 function startFps(net) {
@@ -1999,149 +2097,533 @@ function startFps(net) {
     const on = (t, e, f, o) => { t.addEventListener(e, f, o); cleanups.push(() => t.removeEventListener(e, f, o)); };
     let raf = 0, destroyed = false;
     const timers = [];
+    const later = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
 
     $("fpsGame").classList.remove("hidden");
-    const cvs = $("fpsCanvas"), g = cvs.getContext("2d");
-    const radar = $("fpsRadar"), rg = radar.getContext("2d");
+    $("fpsRadar").style.display = "none";
 
+    // ---------- RENDERER / SAHNE ----------
+    if (!window.THREE) { toast("Three.js yüklenemedi!"); return { onRelay() {}, onRoomState() {}, destroy() {} }; }
+    let renderer;
+    try {
+        renderer = new THREE.WebGLRenderer({ canvas: $("fpsCanvas"), antialias: true });
+    } catch (e) { toast("WebGL desteklenmiyor!"); return { onRelay() {}, onRoomState() {}, destroy() {} }; }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if (THREE.sRGBEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
+    if (THREE.ACESFilmicToneMapping !== undefined) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; }
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.08, 300);
+    camera.rotation.order = "YXZ";
+    scene.add(camera);
+
+    function resize() {
+        const w = window.innerWidth, h = Math.max(1, window.innerHeight);
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+    }
+    resize(); on(window, "resize", resize);
+
+    // ---------- OYUNCU KURULUMU ----------
     const myId = net.myId();
     const rs0 = net.state();
     const teamOf = {}, names = {}, order = [];
     rs0.players.forEach((p) => { teamOf[p.id] = p.team; names[p.id] = p.name; order.push(p.id); });
-    const myTeam = teamOf[myId];
-    const teamCount = [0, 0];
-    order.forEach((id) => teamCount[teamOf[id]]++);
-    const maxHp = teamCount[myTeam] < teamCount[1 - myTeam] ? 150 : 100;
-    const TEAM_NAMES = ["MAVİ", "KIRMIZI"], TEAM_COL = ["#3b82f6", "#ef4444"], TEAM_LIGHT = ["#93c5fd", "#fca5a5"];
+    const myTeam = teamOf[myId] || 0;
+    const TEAM_NAMES = ["MAVİ", "KIRMIZI"], TEAM_COL = [0x3b82f6, 0xef4444], TEAM_LIGHT = ["#93c5fd", "#fca5a5"];
+    const MAX_HP = 100, WALK = 5.2, RUN = 7.6, CROUCH_SP = 2.6, GRAV = 22, JUMP_V = 8.0;
+    const ROUND_TIME = 100, FREEZE_TIME = 5, END_TIME = 4, WIN_ROUNDS = 4, VOTE_TIME = 25;
 
-    const WEAPONS = [
-        { name: "Tüfek",   dmg: 27, head: 90, rate: 0.11, mag: 30, reload: 1.9, auto: true,  spread: 0.010, recoil: 0.010 },
-        { name: "Tabanca", dmg: 24, head: 75, rate: 0.20, mag: 12, reload: 1.3, auto: false, spread: 0.006, recoil: 0.030 },
-    ];
-    const ROUND_TIME = 100, FREEZE_TIME = 4, END_TIME = 4, WIN_ROUNDS = 4;
+    // ---------- HARİTA YÖNETİMİ ----------
+    const solids = [];            // {x0,x1,z0,z1,h}
+    let mapGroup = null, builtMapId = -1, disposables = [];
 
-    const MW = FPS_MAP[0].length, MH = FPS_MAP.length;
-    const grid = new Uint8Array(MW * MH);
-    const WALLCH = { "#": 1, "C": 2, "M": 3 };
-    const spawnRaw = [[], []];
-    for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-        const ch = FPS_MAP[y][x];
-        if (WALLCH[ch]) grid[y * MW + x] = WALLCH[ch];
-        else if (ch === "a") spawnRaw[0].push([x + 0.5, y + 0.5]);
-        else if (ch === "b") spawnRaw[1].push([x + 0.5, y + 0.5]);
+    function disposeMap() {
+        if (!mapGroup) return;
+        scene.remove(mapGroup);
+        mapGroup.traverse((o) => {
+            if (o.geometry) o.geometry.dispose();
+            if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); }); }
+        });
+        mapGroup = null; solids.length = 0; disposables = [];
     }
-    function orderSpawns(list) {
-        const n = list.filter((p) => p[1] < MH / 2), s = list.filter((p) => p[1] >= MH / 2), out = [];
-        for (let i = 0; i < Math.max(n.length, s.length); i++) { if (n[i]) out.push(n[i]); if (s[i]) out.push(s[i]); }
-        return out;
-    }
-    const SPAWNS = [orderSpawns(spawnRaw[0]), orderSpawns(spawnRaw[1])];
 
-    function fpsCollides(x, y) {
-        const r = 0.25;
-        const x0 = Math.floor(x - r), x1 = Math.floor(x + r), y0 = Math.floor(y - r), y1 = Math.floor(y + r);
-        for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-            if (tx < 0 || ty < 0 || tx >= MW || ty >= MH || grid[ty * MW + tx]) return true;
+    function buildMap(id) {
+        if (builtMapId === id) return;
+        disposeMap();
+        builtMapId = id;
+        const def = FPS_MAPS[id] || FPS_MAPS[0];
+        scene.background = new THREE.Color(def.sky);
+        scene.fog = new THREE.FogExp2(def.sky, def.fogD);
+
+        mapGroup = new THREE.Group();
+        scene.add(mapGroup);
+
+        const matFloor = new THREE.MeshStandardMaterial({ color: def.floor, roughness: 0.95, metalness: 0.02 });
+        const matWall = new THREE.MeshStandardMaterial({ color: def.wall, roughness: 0.85, metalness: 0.05 });
+        const matCrate = new THREE.MeshStandardMaterial({ color: def.crate, roughness: 0.9, metalness: 0.02 });
+        const matDeco = new THREE.MeshStandardMaterial({ color: def.deco, roughness: 1.0 });
+        const matAcc = new THREE.MeshStandardMaterial({ color: def.wall, roughness: 0.7, metalness: 0.3 });
+
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(66, 0.4, 66), matFloor);
+        floor.position.y = -0.2; floor.receiveShadow = true;
+        mapGroup.add(floor);
+
+        const grid = new THREE.GridHelper(64, 32, def.day ? 0x3c414a : 0x2a3140, def.day ? 0x3c414a : 0x222a38);
+        grid.position.y = 0.01;
+        if (grid.material) grid.material.opacity = 0.35, grid.material.transparent = true;
+        mapGroup.add(grid);
+
+        const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+        function addBox(cx, cz, w, d, h, mat, solid) {
+            const m = new THREE.Mesh(boxGeo, mat);
+            m.scale.set(w, h, d);
+            m.position.set(cx, h / 2, cz);
+            m.castShadow = true; m.receiveShadow = true;
+            mapGroup.add(m);
+            if (solid) solids.push({ x0: cx - w / 2, x1: cx + w / 2, z0: cz - d / 2, z1: cz + d / 2, h });
+            return m;
+        }
+        const b = {
+            wall: (x, z, w, d, h) => addBox(x, z, w, d, h, matWall, true),
+            crate: (x, z, w, d, h) => addBox(x, z, w, d, h, matCrate, true),
+            car: (x, z, col) => {
+                const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.4, metalness: 0.55 });
+                addBox(x, z, 4.2, 2.0, 1.05, mat, true);
+                const cab = addBox(x, z, 2.2, 1.8, 0.85, mat, false);
+                cab.position.y = 1.45;
+                const gl = new THREE.MeshStandardMaterial({ color: 0x222831, roughness: 0.2, metalness: 0.8 });
+                addBox(x - 0.0, z, 4.25, 2.05, 0.18, gl, false).position.y = 0.45;
+            },
+            lamp: (x, z, col) => {
+                const li = new THREE.PointLight(col, 1.25, 30, 2);
+                li.position.set(x, 4.6, z);
+                mapGroup.add(li);
+                const pole = addBox(x, z, 0.22, 0.22, 4.8, matAcc, true);
+                const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8),
+                    new THREE.MeshBasicMaterial({ color: col }));
+                bulb.position.set(x, 4.75, z);
+                mapGroup.add(bulb);
+                const pl = new THREE.PointLight(col, 0.9, 18, 2);
+                pl.position.set(x, 4.4, z); mapGroup.add(pl);
+            },
+        };
+        def.build(b);
+
+        // dekor: ufak enkaz (tüm istemcilerde aynı — sabit tohum)
+        let s = (id + 7) * 9301;
+        const rng = () => { s = (s * 233280 + 9301) % 233280; return s / 233280; };
+        for (let i = 0; i < 26; i++) {
+            const x = (rng() - 0.5) * 58, z = (rng() - 0.5) * 58, h = 0.12 + rng() * 0.4;
+            const m = new THREE.Mesh(boxGeo, matDeco);
+            m.scale.set(0.25 + rng() * 0.6, h, 0.25 + rng() * 0.6);
+            m.position.set(x, h / 2, z);
+            m.rotation.y = rng() * Math.PI;
+            m.castShadow = true; m.receiveShadow = true;
+            mapGroup.add(m);
+        }
+
+        // ışıklar
+        const hemi = new THREE.HemisphereLight(def.hemiS, def.hemiG, def.hemiI);
+        mapGroup.add(hemi);
+        const sun = new THREE.DirectionalLight(def.sunC, def.sunI);
+        sun.position.set(def.sunP[0], def.sunP[1], def.sunP[2]);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        sun.shadow.camera.left = -46; sun.shadow.camera.right = 46;
+        sun.shadow.camera.top = 46; sun.shadow.camera.bottom = -46;
+        sun.shadow.camera.near = 1; sun.shadow.camera.far = 160;
+        sun.shadow.bias = -0.0004;
+        mapGroup.add(sun);
+        if (def.night) {
+            const amb = new THREE.AmbientLight(0x30405f, 0.5);
+            mapGroup.add(amb);
+        }
+    }
+
+    // ---------- 3D KARAKTER FABRİKASI ----------
+    function buildCharacter(team) {
+        const col = TEAM_COL[team];
+        const cloth = new THREE.MeshStandardMaterial({ color: col, roughness: 0.8, metalness: 0.05 });
+        const dark = new THREE.MeshStandardMaterial({ color: 0x232a36, roughness: 0.75 });
+        const skin = new THREE.MeshStandardMaterial({ color: 0xe2b58f, roughness: 0.9 });
+        const grp = new THREE.Group();
+
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.34), cloth);
+        torso.position.y = 1.16; torso.castShadow = true; grp.add(torso);
+        const vest = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.4, 0.4), dark);
+        vest.position.y = 1.2; vest.castShadow = true; grp.add(vest);
+        const hips = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.24, 0.3), dark);
+        hips.position.y = 0.76; hips.castShadow = true; grp.add(hips);
+
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), skin);
+        head.position.y = 1.7; head.castShadow = true; grp.add(head);
+        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.235, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), dark);
+        helmet.position.y = 1.71; helmet.castShadow = true; grp.add(helmet);
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.09, 0.06),
+            new THREE.MeshStandardMaterial({ color: 0x111111, emissive: col, emissiveIntensity: 0.9, roughness: 0.3 }));
+        visor.position.set(0, 1.7, -0.19); grp.add(visor);
+
+        function limb(px, py, len, r, mat) {
+            const g = new THREE.Group();
+            g.position.set(px, py, 0);
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.85, len, 8), mat);
+            m.position.y = -len / 2; m.castShadow = true;
+            g.add(m);
+            grp.add(g);
+            return g;
+        }
+        const armL = limb(-0.42, 1.42, 0.58, 0.09, cloth);
+        const armR = limb(0.42, 1.42, 0.58, 0.09, cloth);
+        const legL = limb(-0.17, 0.72, 0.72, 0.1, dark);
+        const legR = limb(0.17, 0.72, 0.72, 0.1, dark);
+
+        // el silahı
+        const gun = new THREE.Group();
+        const gunMat = new THREE.MeshStandardMaterial({ color: 0x2b303c, roughness: 0.45, metalness: 0.6 });
+        const gb = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.62), gunMat);
+        gb.position.set(0, 0, -0.2); gun.add(gb);
+        const gm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.2, 0.1), gunMat);
+        gm.position.set(0, -0.14, -0.05); gun.add(gm);
+        gun.position.set(0.34, 1.28, -0.34);
+        gun.rotation.x = -0.08;
+        grp.add(gun);
+        armR.rotation.x = -1.15; armL.rotation.x = -1.0; armL.rotation.z = 0.5;
+
+        // takım ismi etiketi
+        const lblCv = document.createElement("canvas");
+        lblCv.width = 256; lblCv.height = 64;
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ depthWrite: false }));
+        sprite.scale.set(1.7, 0.42, 1);
+        sprite.position.y = 2.12;
+        grp.add(sprite);
+
+        return {
+            grp, torso, visor, armL, armR, legL, legR, sprite, lblCv,
+            cloth, walkT: 0, crouchCur: 0, flashT: 0,
+            drawLabel(text, lightCol) {
+                const c = lblCv.getContext("2d");
+                c.clearRect(0, 0, 256, 64);
+                c.font = "bold 30px 'Segoe UI', sans-serif";
+                c.textAlign = "center"; c.textBaseline = "middle";
+                c.strokeStyle = "rgba(0,0,0,0.9)"; c.lineWidth = 6;
+                c.strokeText(text, 128, 32);
+                c.fillStyle = lightCol; c.fillText(text, 128, 32);
+                if (sprite.material.map) sprite.material.map.dispose();
+                const tex = new THREE.CanvasTexture(lblCv);
+                sprite.material.map = tex;
+                sprite.material.needsUpdate = true;
+            },
+        };
+    }
+
+    const others = {};
+    function mkOther(p) {
+        const ch = buildCharacter(p.team);
+        scene.add(ch.grp);
+        const o = {
+            id: p.id, name: p.name, team: p.team, ch,
+            x: 0, y: 0, z: 0, yaw: 0, py: 0, tx: 0, ty: 0, tz: 0, tyaw: 0, tpy: 0,
+            crouch: 0, got: false, alive: true, spd: 0,
+        };
+        ch.drawLabel(p.name, TEAM_LIGHT[p.team] || "#fff");
+        return o;
+    }
+
+    function setCorpse(o) {
+        o.alive = false;
+        o.ch.grp.rotation.x = -Math.PI / 2;
+        o.ch.grp.position.y = 0.32;
+    }
+    function reviveChar(o) {
+        o.alive = true;
+        o.ch.grp.rotation.x = 0;
+        o.ch.grp.scale.y = 1;
+        o.ch.crouchCur = 0;
+    }
+
+    // ---------- EFekt HAVUZLARI ----------
+    const tracerPool = [];
+    for (let i = 0; i < 14; i++) {
+        const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+        const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0 }));
+        line.frustumCulled = false;
+        scene.add(line);
+        tracerPool.push({ line, life: 0 });
+    }
+    function spawnTracer(a, b2) {
+        const t = tracerPool.find((x) => x.life <= 0) || tracerPool[0];
+        t.line.geometry.setFromPoints([a, b2]);
+        t.line.material.opacity = 0.9;
+        t.life = 0.09;
+    }
+    const sparkPool = [];
+    const sparkGeo = new THREE.BoxGeometry(0.055, 0.055, 0.055);
+    for (let i = 0; i < 60; i++) {
+        const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color: 0xffb055, transparent: true, opacity: 0 }));
+        m.visible = false;
+        scene.add(m);
+        sparkPool.push({ m, vx: 0, vy: 0, vz: 0, life: 0 });
+    }
+    function spawnSparks(pos, n, color) {
+        let c = 0;
+        for (const s of sparkPool) {
+            if (s.life > 0) continue;
+            s.m.material.color.setHex(color);
+            s.m.position.copy(pos);
+            s.m.visible = true;
+            s.m.material.opacity = 1;
+            s.m.scale.setScalar(0.7 + Math.random() * 0.8);
+            s.vx = (Math.random() - 0.5) * 5; s.vy = Math.random() * 4.5; s.vz = (Math.random() - 0.5) * 5;
+            s.life = 0.3 + Math.random() * 0.18;
+            if (++c >= n) break;
+        }
+    }
+    const flashLights = [];
+    for (let i = 0; i < 3; i++) {
+        const li = new THREE.PointLight(0xffc36b, 0, 11, 2);
+        scene.add(li);
+        flashLights.push({ li, life: 0 });
+    }
+    function remoteFlash(pos) {
+        const f = flashLights.find((x) => x.life <= 0) || flashLights[0];
+        f.li.position.copy(pos);
+        f.li.intensity = 2.6;
+        f.life = 0.08;
+    }
+    function updateFx(dt) {
+        for (const t of tracerPool) {
+            if (t.life > 0) { t.life -= dt; t.line.material.opacity = Math.max(0, t.life / 0.09) * 0.9; }
+        }
+        for (const s of sparkPool) {
+            if (s.life > 0) {
+                s.life -= dt;
+                s.vy -= 14 * dt;
+                s.m.position.x += s.vx * dt; s.m.position.y += s.vy * dt; s.m.position.z += s.vz * dt;
+                s.m.material.opacity = Math.max(0, s.life / 0.45);
+                if (s.life <= 0) s.m.visible = false;
+            }
+        }
+        for (const f of flashLights) {
+            if (f.life > 0) { f.life -= dt; f.li.intensity *= Math.max(0, 1 - dt * 22); if (f.life <= 0) f.li.intensity = 0; }
+        }
+    }
+
+    // ---------- SİLAH GÖRSELİ (viewmodel) ----------
+    const vm = new THREE.Group();
+    camera.add(vm);
+    let vmGun = null;
+    const muzzle = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.26, 0.26),
+        new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    vm.add(muzzle);
+    const muzzleLight = new THREE.PointLight(0xffc36b, 0, 12, 2);
+    camera.add(muzzleLight);
+    muzzleLight.position.set(0.2, -0.1, -0.9);
+
+    function buildGunModel(w) {
+        while (vmGun && vmGun.children.length) vmGun.remove(vmGun.children[0]);
+        if (vmGun) vm.remove(vmGun);
+        vmGun = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({ color: 0x1d212b, roughness: 0.42, metalness: 0.65 });
+        const mat2 = new THREE.MeshStandardMaterial({ color: 0x2e3442, roughness: 0.5, metalness: 0.5 });
+        const wood = new THREE.MeshStandardMaterial({ color: 0x5a4128, roughness: 0.8 });
+        const L = w.len;
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.11, L * 0.62), mat);
+        body.position.z = -L * 0.31; vmGun.add(body);
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, L * 0.5, 8), mat2);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.z = -L * 0.78; vmGun.add(barrel);
+        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.09), mat2);
+        grip.position.set(0, -0.12, -L * 0.12); grip.rotation.x = 0.25; vmGun.add(grip);
+        if (w.name === "Tüfek" || w.name === "Hafı Makineli") {
+            const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.2), mat2);
+            stock.position.z = 0.1; vmGun.add(stock);
+            const mag2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.09), mat2);
+            mag2.position.set(0, -0.16, -L * 0.4); mag2.rotation.x = -0.2; vmGun.add(mag2);
+        }
+        if (w.name === "Tabanca") {
+            const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.3), mat2);
+            slide.position.set(0, 0.07, -0.16); vmGun.add(slide);
+        }
+        if (w.name === "Keskin Nişancı") {
+            const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.26, 10), mat2);
+            scope.rotation.x = Math.PI / 2;
+            scope.position.set(0, 0.1, -0.28); vmGun.add(scope);
+            const st2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.24), wood);
+            st2.position.z = 0.12; vmGun.add(st2);
+        }
+        if (w.name === "Hafı Makineli") {
+            const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 12), mat2);
+            drum.rotation.z = Math.PI / 2;
+            drum.position.set(0, -0.16, -0.3); vmGun.add(drum);
+        }
+        if (w.name === "Pompalı") {
+            const pump = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.16, 8), wood);
+            pump.rotation.x = Math.PI / 2;
+            pump.position.set(0, -0.05, -0.5); vmGun.add(pump);
+        }
+        vmGun.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
+        vm.add(vmGun);
+        return vmGun;
+    }
+
+    // ---------- YEREL OYUNCU DURUMU ----------
+    const self = {
+        x: 0, y: 0, z: 0, yaw: 0, pitch: 0, recP: 0, vx: 0, vz: 0, vy: 0,
+        py: 0, grounded: true, crouch: false, eyeCur: 1.62,
+        hp: MAX_HP, alive: true, cur: 0, ammo: FPS_WEAPONS.map((w) => w.mag),
+        reloadEnd: 0, nextShot: 0, lastShotAt: 0, burst: 0, moving: false, sprint: false,
+        bobT: 0, bobAmp: 0, stepT: 0, ads: false, adsCur: 0, kick: 0,
+    };
+    let deadSet = new Set();
+    let deathCam = null;
+    let S = { phase: "vote", round: 0, scores: [0, 0], timeLeft: VOTE_TIME, roundWinner: null, matchWinner: null, mapId: null };
+    let localRound = -1, lastBroadcast = 0, overShown = false;
+    const keys = {};
+    let locked = false, fireHeld = false, semiReady = false, inMenu = false;
+
+    // ---------- ÇARPIŞMA ----------
+    function supportY(px, pz, feet) {
+        let g = 0;
+        for (const s of solids) {
+            if (px > s.x0 - 0.28 && px < s.x1 + 0.28 && pz > s.z0 - 0.28 && pz < s.z1 + 0.28) {
+                if (s.h <= feet + 0.35 && s.h > g) g = s.h;
+            }
+        }
+        return g;
+    }
+    function collides(px, pz, feet) {
+        for (const s of solids) {
+            if (s.h <= feet + 0.35) continue;
+            if (px > s.x0 - 0.3 && px < s.x1 + 0.3 && pz > s.z0 - 0.3 && pz < s.z1 + 0.3) return true;
         }
         return false;
     }
 
-    const H = 360, VFOV = 60 * Math.PI / 180;
-    let W = 640, planeDist = 300, planeLen = 1, zbuf = new Float32Array(W);
-    function resize() {
-        const asp = window.innerWidth / Math.max(1, window.innerHeight);
-        W = clamp(Math.round(H * asp), 320, 960);
-        cvs.width = W; cvs.height = H;
-        planeDist = (H / 2) / Math.tan(VFOV / 2);
-        planeLen = (W / 2) / planeDist;
-        zbuf = new Float32Array(W);
-        g.imageSmoothingEnabled = false;
-    }
-    resize();
-    on(window, "resize", resize);
-
-    const RAY = { dist: 0, side: 0, type: 0 };
-    function cast(ox, oy, dx, dy) {
-        let mx = Math.floor(ox), my = Math.floor(oy);
-        const ddx = dx === 0 ? 1e30 : Math.abs(1 / dx), ddy = dy === 0 ? 1e30 : Math.abs(1 / dy);
-        let stepX, stepY, sideX, sideY;
-        if (dx < 0) { stepX = -1; sideX = (ox - mx) * ddx; } else { stepX = 1; sideX = (mx + 1 - ox) * ddx; }
-        if (dy < 0) { stepY = -1; sideY = (oy - my) * ddy; } else { stepY = 1; sideY = (my + 1 - oy) * ddy; }
-        let side = 0, type = 0, guard = 0;
-        while (!type && guard++ < 100) {
-            if (sideX < sideY) { sideX += ddx; mx += stepX; side = 0; }
-            else { sideY += ddy; my += stepY; side = 1; }
-            if (mx < 0 || my < 0 || mx >= MW || my >= MH) { type = 1; break; }
-            type = grid[my * MW + mx];
+    // ---------- IŞIN: DUVAR ----------
+    function rayBox(ox, oy, oz, dx, dy, dz, b2) {
+        let tmin = 0, tmax = Infinity;
+        const mins = [b2.x0, 0, b2.z0], maxs = [b2.x1, b2.h, b2.z1];
+        const o = [ox, oy, oz], d = [dx, dy, dz];
+        for (let i = 0; i < 3; i++) {
+            if (Math.abs(d[i]) < 1e-9) { if (o[i] < mins[i] || o[i] > maxs[i]) return null; continue; }
+            let t1 = (mins[i] - o[i]) / d[i], t2 = (maxs[i] - o[i]) / d[i];
+            if (t1 > t2) { const tt = t1; t1 = t2; t2 = tt; }
+            tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2);
+            if (tmin > tmax) return null;
         }
-        RAY.dist = side === 0 ? sideX - ddx : sideY - ddy;
-        RAY.side = side; RAY.type = type || 1;
+        if (tmin <= 0.001) return null;
+        return tmin;
+    }
+    function rayWall(ox, oy, oz, dx, dy, dz, maxT) {
+        let best = maxT;
+        for (const s of solids) {
+            const t = rayBox(ox, oy, oz, dx, dy, dz, s);
+            if (t !== null && t < best) best = t;
+        }
+        return best;
     }
 
-    let seed = 987654321;
-    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-    function mkTex(draw) {
-        const c = document.createElement("canvas"); c.width = c.height = 64;
-        const t = c.getContext("2d"); draw(t);
-        for (let i = 0; i < 260; i++) { t.fillStyle = rnd() < 0.5 ? "rgba(0,0,0,0.13)" : "rgba(255,255,255,0.07)"; t.fillRect((rnd() * 64) | 0, (rnd() * 64) | 0, 2, 2); }
-        return c;
-    }
-    const TEX = [null,
-        mkTex((t) => { t.fillStyle = "#8c4a3b"; t.fillRect(0, 0, 64, 64); t.fillStyle = "#4e2820";
-            for (let r = 0; r < 4; r++) { t.fillRect(0, r * 16, 64, 2); const off = r % 2 ? 0 : 16; for (let x = off; x < 64; x += 32) t.fillRect(x, r * 16, 2, 16); } }),
-        mkTex((t) => { t.fillStyle = "#6b7280"; t.fillRect(0, 0, 64, 64); t.fillStyle = "#4b5563"; t.fillRect(0, 31, 64, 2); t.fillRect(31, 0, 2, 64);
-            t.fillStyle = "#9ca3af"; t.fillRect(0, 0, 64, 2); }),
-        mkTex((t) => { t.fillStyle = "#8b6a3a"; t.fillRect(0, 0, 64, 64); t.strokeStyle = "#5a4222"; t.lineWidth = 4; t.strokeRect(2, 2, 60, 60);
-            t.lineWidth = 3; t.beginPath(); t.moveTo(4, 4); t.lineTo(60, 60); t.moveTo(60, 4); t.lineTo(4, 60); t.stroke(); }),
-    ];
-    function mkSprite(col, dark) {
-        const c = document.createElement("canvas"); c.width = 64; c.height = 128;
-        const s = c.getContext("2d");
-        s.fillStyle = "#1f2430"; s.fillRect(20, 84, 10, 38); s.fillRect(34, 84, 10, 38);
-        s.fillStyle = "#0b0d12"; s.fillRect(18, 120, 13, 8); s.fillRect(33, 120, 13, 8);
-        s.fillStyle = col; s.fillRect(16, 38, 32, 50);
-        s.fillStyle = dark; s.fillRect(16, 74, 32, 8); s.fillRect(16, 38, 32, 5);
-        s.fillStyle = col; s.fillRect(7, 40, 10, 36); s.fillRect(47, 40, 10, 36);
-        s.fillStyle = "#e2b58f"; s.fillRect(7, 74, 10, 8); s.fillRect(47, 74, 10, 8);
-        s.fillStyle = "#111"; s.fillRect(30, 60, 32, 8); s.fillRect(56, 57, 6, 5);
-        s.fillStyle = "#e2b58f"; s.fillRect(24, 14, 16, 22);
-        s.fillStyle = dark; s.fillRect(21, 6, 22, 12);
-        s.fillStyle = "#111827"; s.fillRect(25, 19, 14, 5);
-        return c;
-    }
-    const SPR = [mkSprite("#3b82f6", "#1e3a8a"), mkSprite("#ef4444", "#7f1d1d")];
-    const spriteTmp = document.createElement("canvas"); spriteTmp.width = 64; spriteTmp.height = 128;
-    const st = spriteTmp.getContext("2d");
-    const SHADE = []; for (let i = 0; i <= 20; i++) SHADE.push(`rgba(0,0,0,${(i / 20).toFixed(2)})`);
-
-    const self = { x: 2, y: 8, a: 0, pitch: 0, recoil: 0, hp: maxHp, alive: true, cur: 0, ammo: [WEAPONS[0].mag, WEAPONS[1].mag],
-                   reloadEnd: 0, nextShot: 0, burst: 0, lastShotAt: 0, bobT: 0, bobAmp: 0, moving: false, kick: 0 };
-    const others = {};
-    order.forEach((id) => { if (id !== myId) others[id] = { id, x: 0, y: 0, tx: 0, ty: 0, a: 0, ta: 0, first: true }; });
-    const deadSet = new Set();
-    let deathCam = null;
-    let S = { phase: "freeze", round: 0, scores: [0, 0], timeLeft: FREEZE_TIME, roundWinner: null, matchWinner: null };
-    let localRound = 0, lastBroadcast = 0, overShown = false;
-    const keys = {};
-    let locked = false, fireHeld = false, semiReady = false;
-
-    function respawn() {
-        const members = order.filter((id) => teamOf[id] === myTeam);
-        const list = SPAWNS[myTeam];
-        const sp = list[Math.max(0, members.indexOf(myId)) % list.length];
-        self.x = sp[0]; self.y = sp[1];
-        self.a = myTeam === 0 ? 0 : Math.PI;
-        self.pitch = 0; self.recoil = 0; self.hp = maxHp; self.alive = true; self.cur = 0;
-        self.ammo = [WEAPONS[0].mag, WEAPONS[1].mag]; self.reloadEnd = 0; self.burst = 0;
-        deadSet.clear(); deathCam = null;
-        for (const id in others) others[id].first = true;
-    }
-
-    function commit() { net.send({ k: "S", S }); afterState(); }
+    // ---------- AĞ ----------
+    function commit() { net.send({ k: "S", S }); lastBroadcast = performance.now(); }
     function afterState() {
-        if (S.phase === "freeze" && S.round !== localRound) { localRound = S.round; respawn(); tone(440, 0.15, "square", 0.08); }
+        if (S.mapId !== null && S.mapId !== builtMapId) buildMap(S.mapId);
+        if (S.phase === "vote") { showVoteModal(); }
+        else hideVoteModal();
+        if (S.phase === "freeze" && S.round !== localRound) {
+            localRound = S.round;
+            respawn();
+            tone(440, 0.15, "square", 0.08);
+        }
         if (S.phase === "over") showOver();
         lastBroadcast = performance.now();
+    }
+
+    // ---------- HARİTA OYLAMASI ----------
+    let fpsVoteModal = null, myVote = null, voteCounts = [0, 0, 0], voteN = 0;
+    function showVoteModal() {
+        if (destroyed) return;
+        if (!fpsVoteModal) {
+            fpsVoteModal = document.createElement("div");
+            fpsVoteModal.id = "fpsVoteModal";
+            document.body.appendChild(fpsVoteModal);
+        }
+        renderVoteModal();
+        fpsVoteModal.style.display = "flex";
+    }
+    function hideVoteModal() { if (fpsVoteModal) fpsVoteModal.style.display = "none"; }
+    function renderVoteModal() {
+        if (!fpsVoteModal) return;
+        const total = (net.state() && net.state().players) ? net.state().players.length : 1;
+        fpsVoteModal.innerHTML = `
+            <div class="routeVoteBox">
+                <div class="routeVoteTitle">🗺️ HARİTA OYLAMASI</div>
+                <p class="routeVoteSub">Çatışma nerede gerçekleşecek? Ekibin oyları haritayı belirler — çoğunluk kazanır.</p>
+                <div class="routeGrid">
+                    ${FPS_MAPS.map((m, i) => `
+                    <div class="routeCard ${myVote === i ? "voted" : ""}" onclick="fpsCastVote(${i})">
+                        <h3>${m.icon} ${m.name}</h3>
+                        <div class="rMeta">${m.day ? "☀️ GÜNDÜZ" : "🌙 " + (m.night ? "GECE" : "AKŞAM")} · TAM 3D</div>
+                        <p>${m.desc}</p>
+                        <span class="routeVotesTag">Oy: ${voteCounts[i] || 0}</span>
+                    </div>`).join("")}
+                </div>
+                <div class="routeStatus">Oylama: ${voteN} / ${total} oyuncu oyladı</div>
+            </div>`;
+    }
+    window.fpsCastVote = function (mi) {
+        myVote = mi;
+        renderVoteModal();
+        const host = net.state() && net.state().host;
+        net.send({ k: "vote", m: mi }, host);
+        if (host === myId) hostAddVote(myId, mi);
+        tone(600, 0.06, "square", 0.06);
+    };
+    function hostAddVote(pid, mi) {
+        if (!net.isHost() || S.phase !== "vote") return;
+        if (!(hostVotes instanceof Map)) hostVotes = new Map();
+        if (!hostVotes.has(pid)) voteN++;
+        hostVotes.set(pid, mi);
+        voteCounts = [0, 0, 0];
+        hostVotes.forEach((v) => { voteCounts[v] = (voteCounts[v] || 0) + 1; });
+        net.send({ k: "V", c: voteCounts, n: voteN });
+        const total = net.state().players.length;
+        if (voteN >= total) hostChooseMap();
+    }
+    let hostVotes = new Map();
+    function hostChooseMap() {
+        if (!net.isHost() || S.phase !== "vote") return;
+        let best = 0, bestC = -1;
+        voteCounts.forEach((c, i) => { if (c > bestC) { bestC = c; best = i; } });
+        const tied = voteCounts.filter((c) => c === bestC).length;
+        let chosen = best;
+        if (tied > 1) chosen = Math.floor(Math.random() * FPS_MAPS.length);
+        hostVotes.clear(); voteN = 0;
+        S.mapId = chosen; S.phase = "freeze"; S.round = 1; S.timeLeft = FREEZE_TIME; S.roundWinner = null;
+        commit();
+    }
+
+    // ---------- RAUND AKIŞI ----------
+    function respawn() {
+        const def = FPS_MAPS[S.mapId] || FPS_MAPS[0];
+        const members = order.filter((id) => teamOf[id] === myTeam);
+        const list = def.spawns[myTeam] || def.spawns[0];
+        const sp = list[Math.max(0, members.indexOf(myId)) % list.length];
+        self.x = sp[0]; self.z = sp[1]; self.py = 0; self.vy = 0;
+        const dx = -self.x, dz = -self.z;
+        self.yaw = Math.atan2(-dx, -dz);
+        self.pitch = 0; self.recP = 0; self.vx = 0; self.vz = 0;
+        self.hp = MAX_HP; self.alive = true; self.cur = 0;
+        self.ammo = FPS_WEAPONS.map((w) => w.mag);
+        self.reloadEnd = 0; self.burst = 0; self.crouch = false;
+        deadSet = new Set(); deathCam = null;
+        for (const id in others) reviveChar(others[id]);
+        buildGunModel(FPS_WEAPONS[self.cur]);
     }
     function endRound(w) {
         S.phase = "roundend"; S.timeLeft = END_TIME; S.roundWinner = w;
@@ -2149,11 +2631,13 @@ function startFps(net) {
         commit();
     }
     function hostTick() {
-        if (!net.isHost() || S.phase === "over") return;
-        if (S.round === 0) {
-            S = { phase: "freeze", round: 1, scores: [0, 0], timeLeft: FREEZE_TIME, roundWinner: null, matchWinner: null };
-            commit(); return;
+        if (!net.isHost() || destroyed) return;
+        if (S.phase === "vote") {
+            if (performance.now() - lastBroadcast > 1000) { S.timeLeft = Math.max(0, S.timeLeft - 1); commit(); }
+            if (S.timeLeft <= 0) hostChooseMap();
+            return;
         }
+        if (S.phase === "over") return;
         const cnt = [0, 0], alive = [0, 0];
         net.state().players.forEach((p) => { cnt[p.team]++; if (!deadSet.has(p.id)) alive[p.team]++; });
         if (cnt[0] === 0 || cnt[1] === 0) {
@@ -2182,45 +2666,110 @@ function startFps(net) {
             w === null ? "#94a3b8" : won ? "#22c55e" : "#ef4444");
     }
 
+    // ---------- GİRİŞ (fare + klavye) ----------
     const lockEl = $("fLock");
-    on(lockEl, "click", () => { cvs.requestPointerLock(); actx(); });
-    on(cvs, "click", () => { if (!locked) cvs.requestPointerLock(); });
+    on(lockEl, "click", () => { $("fpsCanvas").requestPointerLock(); actx(); });
+    on($("fpsCanvas"), "click", () => { if (!locked && !inMenu) $("fpsCanvas").requestPointerLock(); });
     on(document, "pointerlockchange", () => {
-        locked = document.pointerLockElement === cvs;
+        locked = document.pointerLockElement === $("fpsCanvas");
         lockEl.style.display = locked ? "none" : "flex";
         if (!locked) fireHeld = false;
     });
     on(document, "mousemove", (e) => {
         if (!locked) return;
-        self.a += e.movementX * 0.0022;
-        self.pitch = clamp(self.pitch - e.movementY * 0.0022, -0.5, 0.5);
+        const sens = self.ads && self.cur === 2 ? 0.0009 : 0.0022;
+        self.yaw -= e.movementX * sens;
+        self.pitch = clamp(self.pitch - e.movementY * sens, -1.45, 1.45);
     });
-    on(document, "mousedown", (e) => { if (locked && e.button === 0) { fireHeld = true; semiReady = true; } });
-    on(document, "mouseup", (e) => { if (e.button === 0) fireHeld = false; });
+    on(document, "mousedown", (e) => {
+        if (!locked) return;
+        if (e.button === 0) { fireHeld = true; semiReady = true; }
+        if (e.button === 2) self.ads = true;
+    });
+    on(document, "mouseup", (e) => {
+        if (e.button === 0) fireHeld = false;
+        if (e.button === 2) self.ads = false;
+    });
+    on(window, "contextmenu", (e) => { if (locked) e.preventDefault(); });
     on(window, "keydown", (e) => {
+        if (e.code === "Space") e.preventDefault();
         keys[e.code] = true;
+        if (inMenu) return;
         if (e.code === "KeyR") startReload();
-        if (e.code === "Digit1") switchWeapon(0);
-        if (e.code === "Digit2") switchWeapon(1);
+        if (e.code === "KeyB") toggleWeaponMenu();
+        const dig = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4 }[e.code];
+        if (dig !== undefined) switchWeapon(dig);
     });
     on(window, "keyup", (e) => { keys[e.code] = false; });
     on(window, "blur", () => { for (const k in keys) keys[k] = false; fireHeld = false; });
 
+    // ---------- SİLAH MENÜSÜ (B) ----------
+    let wMenu = null;
+    function toggleWeaponMenu(force) {
+        const open = force !== undefined ? force : !inMenu;
+        inMenu = open;
+        if (open) {
+            if (!wMenu) {
+                wMenu = document.createElement("div");
+                wMenu.id = "wMenu";
+                document.body.appendChild(wMenu);
+            }
+            renderWeaponMenu();
+            wMenu.style.display = "flex";
+            if (document.exitPointerLock) document.exitPointerLock();
+        } else if (wMenu) {
+            wMenu.style.display = "none";
+            $("fpsCanvas").requestPointerLock();
+        }
+    }
+    function renderWeaponMenu() {
+        if (!wMenu) return;
+        wMenu.innerHTML = `<div class="wBox">
+            <div class="routeVoteTitle">🔫 CEPHANELİK</div>
+            <p class="routeVoteSub">Bir silah seç — [1-5] tuşlarıyla da hızlı geçebilirsin. (B: kapat)</p>
+            <div class="wGrid">
+                ${FPS_WEAPONS.map((w, i) => `
+                <div class="wCard ${self.cur === i ? "sel" : ""}" onclick="fpsPickWeapon(${i})">
+                    <div class="ico">${w.icon}</div>
+                    <h3>${i + 1}. ${w.name}</h3>
+                    <small>${w.desc}</small>
+                    <div class="ammo">Şarjör: ${w.mag} • Hasar: ${w.dmg}${w.pellets > 1 ? "×" + w.pellets : ""}</div>
+                </div>`).join("")}
+            </div>
+        </div>`;
+    }
+    window.fpsPickWeapon = function (i) { switchWeapon(i); toggleWeaponMenu(false); };
+
     function startReload() {
-        const w = WEAPONS[self.cur];
+        const w = FPS_WEAPONS[self.cur];
         if (!self.alive || self.reloadEnd || self.ammo[self.cur] >= w.mag) return;
         self.reloadEnd = performance.now() + w.reload * 1000;
         tone(300, 0.08, "square", 0.08);
+        later(() => tone(520, 0.07, "square", 0.07), w.reload * 700);
     }
     function switchWeapon(i) {
-        if (!self.alive || self.cur === i) return;
-        self.cur = i; self.reloadEnd = 0; self.nextShot = performance.now() + 250;
+        if (!self.alive || self.cur === i || i < 0 || i >= FPS_WEAPONS.length) return;
+        self.cur = i; self.reloadEnd = 0; self.nextShot = performance.now() + 280;
+        buildGunModel(FPS_WEAPONS[i]);
+        vmDrop = 0.28;
         tone(500, 0.05, "square", 0.06);
     }
-    const currentSpread = () => WEAPONS[self.cur].spread + (self.moving ? 0.022 : 0) + self.burst * 0.0035;
-    function sfxShot(v) { noiseBurst(0.12, 0.28 * v, 3200); tone(140, 0.1, "square", 0.12 * v, 50); }
-    function later(fn, ms) { const id = setTimeout(fn, ms); timers.push(id); return id; }
+    let vmDrop = 0;
+    function currentSpread() {
+        const w = FPS_WEAPONS[self.cur];
+        const move = self.moving ? 0.02 : 0;
+        const air = self.grounded ? 0 : 0.03;
+        const ads = self.adsCur * 0.65;
+        return Math.max(0.0008, w.spread * (1 - ads) + move + air + self.burst * 0.003);
+    }
+    function sfxShot(i, v) {
+        if (i === 2) { noiseBurst(0.3, 0.4 * v, 1800); tone(90, 0.3, "sawtooth", 0.16 * v, 38); }
+        else if (i === 4) { noiseBurst(0.24, 0.4 * v, 1200); tone(70, 0.2, "square", 0.18 * v, 40); }
+        else if (i === 1) { noiseBurst(0.08, 0.2 * v, 3000); tone(220, 0.08, "square", 0.1 * v, 90); }
+        else { noiseBurst(0.11, 0.26 * v, i === 3 ? 2400 : 3200); tone(150, 0.1, "square", 0.11 * v, 55); }
+    }
 
+    // ---------- ATEŞ ----------
     let hitTimer = 0;
     function hitMarker(head) {
         const el = $("fHit");
@@ -2228,49 +2777,81 @@ function startFps(net) {
         clearTimeout(hitTimer); hitTimer = later(() => { el.style.opacity = "0"; }, 140);
         tone(head ? 1400 : 900, 0.06, "square", 0.08);
     }
-    function fireShot(w) {
+    const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3();
+    function fireShot(w, wi) {
+        const pellets = w.pellets || 1;
         const sp = currentSpread();
-        const ang = self.a + (Math.random() - 0.5) * 2 * sp;
-        const slope = self.pitch + self.recoil + (Math.random() - 0.5) * 2 * sp * 0.7;
-        const dx = Math.cos(ang), dy = Math.sin(ang);
-        cast(self.x, self.y, dx, dy);
-        let bestT = RAY.dist, best = null, bestHead = false;
-        for (const id in others) {
-            if (teamOf[id] === myTeam || deadSet.has(id) || others[id].first) continue;
-            const o = others[id], px = o.x - self.x, py = o.y - self.y;
-            const t = px * dx + py * dy;
-            if (t < 0.05 || t >= bestT) continue;
-            if (Math.abs(px * dy - py * dx) > 0.28) continue;
-            const h = 0.5 + t * slope;
-            if (h < 0 || h > 1) continue;
-            best = id; bestT = t; bestHead = h > 0.76;
+        let anyHit = false, anyHead = false;
+        camera.getWorldPosition(tmpA);
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        for (let pi = 0; pi < pellets; pi++) {
+            const jit = () => (Math.random() - 0.5) * 2 * sp;
+            const dir = fwd.clone();
+            const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+            const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+            dir.addScaledVector(right, jit()).addScaledVector(up, jit()).normalize();
+            const maxT = 90;
+            const wallT = rayWall(tmpA.x, tmpA.y, tmpA.z, dir.x, dir.y, dir.z, maxT);
+            let bestT = wallT, bestId = null, bestHead = false;
+            for (const id in others) {
+                const o = others[id];
+                if (o.team === myTeam || !o.alive || !o.got) continue;
+                const cx = o.x - tmpA.x, cy = (o.py + 0.9) - tmpA.y, cz = o.z - tmpA.z;
+                const t = cx * dir.x + cy * dir.y + cz * dir.z;
+                if (t < 0.1 || t >= bestT) continue;
+                const hgt = o.crouch > 0.5 ? 1.35 : 1.8;
+                const px = tmpA.x + dir.x * t, py2 = tmpA.y + dir.y * t, pz = tmpA.z + dir.z * t;
+                const yy = clamp(py2 - o.py, 0, hgt);
+                const rx = px - o.x, rz = pz - o.z;
+                if (rx * rx + rz * rz > 0.42 * 0.42) continue;
+                bestT = t; bestId = id; bestHead = py2 > o.py + hgt * 0.78;
+            }
+            const hx = tmpA.x + dir.x * bestT, hy = tmpA.y + dir.y * bestT, hz = tmpA.z + dir.z * bestT;
+            if (pi === 0 || pellets <= 2) {
+                const tip = new THREE.Vector3();
+                if (vmGun) vmGun.getWorldPosition(tip);
+                else tip.copy(tmpA);
+                spawnTracer(tip, new THREE.Vector3(hx, hy, hz));
+            }
+            if (bestId) {
+                spawnSparks(new THREE.Vector3(hx, hy, hz), 4, 0xd43a3a);
+                const wsel = FPS_WEAPONS[wi];
+                net.send({ k: "dmg", amt: bestHead ? wsel.head : wsel.dmg, head: bestHead }, bestId);
+                anyHit = true; anyHead = anyHead || bestHead;
+            } else if (bestT < maxT - 0.01) {
+                spawnSparks(new THREE.Vector3(hx, hy, hz), 5, 0xffb055);
+            }
         }
-        sfxShot(1);
-        net.send({ k: "shot", x: self.x, y: self.y });
-        if (best) {
-            net.send({ k: "dmg", amt: bestHead ? w.head : w.dmg, head: bestHead }, best);
-            hitMarker(bestHead);
-        }
+        sfxShot(wi, 1);
+        net.send({ k: "shot", x: self.x, y: self.py + 1.6, z: self.z });
+        muzzle.material.opacity = 1; muzzle.rotation.z = Math.random() * Math.PI;
+        muzzleLight.intensity = 2.8;
+        if (anyHit) hitMarker(anyHead);
     }
     function updateWeapon(dt, now) {
-        const w = WEAPONS[self.cur];
+        const w = FPS_WEAPONS[self.cur];
         if (self.reloadEnd && now >= self.reloadEnd) { self.ammo[self.cur] = w.mag; self.reloadEnd = 0; }
-        self.recoil = Math.max(0, self.recoil - dt * 0.35);
-        self.kick = Math.max(0, self.kick - dt * 8);
-        if (now - self.lastShotAt > 130) self.burst = Math.max(0, self.burst - dt * 10);
-        if (!self.alive || !locked || S.phase !== "live" || self.reloadEnd || !fireHeld || now < self.nextShot) return;
-        if (!w.auto && !semiReady) return;
-        if (self.ammo[self.cur] <= 0) { startReload(); return; }
-        semiReady = false;
-        self.ammo[self.cur]--;
-        self.nextShot = now + w.rate * 1000; self.lastShotAt = now;
-        self.burst = Math.min(8, self.burst + 1);
-        self.recoil = Math.min(0.25, self.recoil + w.recoil);
-        self.kick = 1;
-        fireShot(w);
-        if (self.ammo[self.cur] <= 0) startReload();
+        self.recP = Math.max(0, self.recP - dt * (0.6 + self.recP * 4));
+        self.kick = Math.max(0, self.kick - dt * 9);
+        muzzle.material.opacity = Math.max(0, muzzle.material.opacity - dt * 22);
+        muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 40);
+        if (now - self.lastShotAt > 140) self.burst = Math.max(0, self.burst - dt * 12);
+        const canFire = self.alive && locked && !inMenu && S.phase === "live" && !self.reloadEnd && fireHeld && now >= self.nextShot;
+        if (canFire && (!w.auto ? semiReady : true)) {
+            if (self.ammo[self.cur] <= 0) { startReload(); return; }
+            semiReady = false;
+            self.ammo[self.cur]--;
+            self.nextShot = now + w.rate;
+            self.lastShotAt = now;
+            self.burst = Math.min(10, self.burst + 1);
+            self.recP = Math.min(0.3, self.recP + w.recoil);
+            self.kick = 1;
+            fireShot(w, self.cur);
+            if (self.ammo[self.cur] <= 0) startReload();
+        }
     }
 
+    // ---------- HASAR / ÖLÜM ----------
     let dmgTimer = 0;
     function flashDamage() {
         const el = $("fDamage"); el.style.opacity = "1";
@@ -2283,8 +2864,8 @@ function startFps(net) {
         row.appendChild(span(head ? "  💀➜  " : "  ➜  ", "#f8fafc"));
         row.appendChild(span(names[victim] || "?", TEAM_LIGHT[teamOf[victim]] || "#fff"));
         feed.appendChild(row);
-        while (feed.children.length > 5) feed.firstChild.remove();
-        later(() => row.remove(), 5000);
+        while (feed.children.length > 6) feed.firstChild.remove();
+        later(() => row.remove(), 5200);
     }
     function takeDamage(amt, head, by) {
         if (!self.alive || S.phase !== "live") return;
@@ -2293,187 +2874,173 @@ function startFps(net) {
         if (self.hp <= 0) {
             self.hp = 0; self.alive = false; fireHeld = false;
             deadSet.add(myId);
-            deathCam = { x: self.x, y: self.y, a: self.a };
+            deathCam = { x: self.x, y: self.py, z: self.z, a: self.yaw };
             net.send({ k: "died", by, head });
             addKill(by, myId, head);
             tone(90, 0.5, "sawtooth", 0.2, 30);
         }
     }
 
+    // ---------- HAREKET ----------
+    let specScope = null;
     function updateSelf(dt) {
         self.moving = false;
-        let moved = false;
-        if (self.alive) {
-            const can = locked && S.round > 0 && S.phase !== "freeze";
-            let f = 0, s = 0;
-            if (can) {
-                f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-                s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
-            }
-            if (f || s) {
-                const len = Math.hypot(f, s), slow = keys.ShiftLeft || keys.ShiftRight;
-                const sp = (slow ? 1.7 : 3.7) * dt;
-                const dX = Math.cos(self.a), dY = Math.sin(self.a);
-                const mx = (dX * f - dY * s) / len * sp, my = (dY * f + dX * s) / len * sp;
-                if (!fpsCollides(self.x + mx, self.y)) self.x += mx;
-                if (!fpsCollides(self.x, self.y + my)) self.y += my;
-                self.moving = !slow; moved = true;
-                self.bobT += dt * (slow ? 6 : 10);
-            }
+        const can = locked && self.alive && S.phase !== "freeze" && S.phase !== "vote" && S.phase !== "over" && builtMapId >= 0;
+        let f = 0, s = 0;
+        if (can) {
+            f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+            s = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
         }
-        self.bobAmp += ((moved ? 3 : 0) - self.bobAmp) * Math.min(1, dt * 8);
+        self.crouch = can && (keys.KeyC || keys.ControlLeft);
+        self.sprint = can && (keys.ShiftLeft || keys.ShiftRight) && f > 0 && !self.crouch;
+        const spd = self.crouch ? CROUCH_SP : self.sprint ? RUN : WALK;
+        let wishX = 0, wishZ = 0;
+        if (f || s) {
+            const len = Math.hypot(f, s);
+            const fx = -Math.sin(self.yaw), fz = -Math.cos(self.yaw);
+            const rx = Math.cos(self.yaw), rz = -Math.sin(self.yaw);
+            wishX = ((fx * f + rx * s) / len) * spd;
+            wishZ = ((fz * f + rz * s) / len) * spd;
+        }
+        const acc = (f || s) ? 11 : 9;
+        self.vx += (wishX - self.vx) * Math.min(1, dt * acc);
+        self.vz += (wishZ - self.vz) * Math.min(1, dt * acc);
+        if (self.grounded && can && keys.Space) { self.vy = JUMP_V; self.grounded = false; tone(240, 0.06, "sine", 0.04); }
+        self.vy -= GRAV * dt;
+
+        const nx = self.x + self.vx * dt, nz = self.z + self.vz * dt;
+        if (!collides(nx, self.z, self.py)) self.x = nx; else self.vx = 0;
+        if (!collides(self.x, nz, self.py)) self.z = nz; else self.vz = 0;
+
+        self.py += self.vy * dt;
+        const sup = supportY(self.x, self.z, self.py);
+        if (self.py <= sup) { self.py = sup; self.vy = 0; self.grounded = true; } else self.grounded = false;
+
+        const hsp = Math.hypot(self.vx, self.vz);
+        self.moving = hsp > 0.6;
+        const movingF = clamp(hsp / RUN, 0, 1);
+        self.bobAmp += ((self.moving && self.grounded ? movingF : 0) - self.bobAmp) * Math.min(1, dt * 8);
+        if (self.moving && self.grounded) {
+            self.bobT += dt * (self.sprint ? 11 : 8);
+            self.stepT += dt * (self.sprint ? 2.9 : 2.2);
+            if (self.stepT >= 1) { self.stepT = 0; noiseBurst(0.04, self.crouch ? 0.015 : 0.045, 700); }
+        }
+        const eyeT = self.crouch ? 1.02 : 1.62;
+        self.eyeCur += (eyeT - self.eyeCur) * Math.min(1, dt * 10);
+        const adsT = self.ads && self.alive ? 1 : 0;
+        self.adsCur += (adsT - self.adsCur) * Math.min(1, dt * 10);
     }
 
-    function drawSprites(cx, cy, dirX, dirY, horizon) {
-        const list = [];
+    // ---------- UZAK OYUNCULAR ----------
+    function updateOthers(dt) {
+        const k = Math.min(1, dt * 13);
         for (const id in others) {
             const o = others[id];
-            if (o.first || deadSet.has(id)) continue;
-            const dx = o.x - cx, dy = o.y - cy, depth = dx * dirX + dy * dirY;
-            if (depth < 0.2) continue;
-            list.push({ id, depth, lat: -dx * dirY + dy * dirX });
-        }
-        list.sort((a, b) => b.depth - a.depth);
-        for (const s of list) {
-            const sh = planeDist / s.depth, sw = sh * 0.5;
-            const sx = W / 2 * (1 + s.lat / (s.depth * planeLen));
-            const top = horizon - sh * 0.5, left = sx - sw / 2;
-            const fog = Math.min(0.85, s.depth / 16);
-            st.globalCompositeOperation = "source-over";
-            st.clearRect(0, 0, 64, 128);
-            st.drawImage(SPR[teamOf[s.id]], 0, 0);
-            if (fog > 0.02) { st.globalCompositeOperation = "source-atop"; st.fillStyle = `rgba(0,0,0,${fog.toFixed(2)})`; st.fillRect(0, 0, 64, 128); }
-            const c0 = Math.max(0, Math.floor(left)), c1 = Math.min(W - 1, Math.ceil(left + sw));
-            for (let x = c0; x <= c1; x++) {
-                if (s.depth >= zbuf[x]) continue;
-                const u = clamp(Math.floor((x - left) / sw * 64), 0, 63);
-                g.drawImage(spriteTmp, u, 0, 1, 128, x, top, 1, sh);
-            }
-            const mid = clamp(Math.round(sx), 0, W - 1);
-            if (teamOf[s.id] === myTeam && s.depth < zbuf[mid]) {
-                g.font = "bold 10px sans-serif"; g.textAlign = "center";
-                g.fillStyle = TEAM_LIGHT[myTeam];
-                g.fillText(names[s.id] || "", sx, top - 4);
+            if (!o.got) continue;
+            const ox = o.x, oz = o.z;
+            o.x += (o.tx - o.x) * k; o.z += (o.tz - o.z) * k; o.py += (o.tpy - o.py) * k;
+            o.yaw += angDiff(o.tyaw, o.yaw) * k;
+            o.spd = Math.hypot(o.x - ox, o.z - oz) / Math.max(dt, 0.001);
+            const ch = o.ch;
+            if (o.alive) {
+                ch.grp.position.set(o.x, o.py, o.z);
+                ch.grp.rotation.y = o.yaw;
+                const cT = o.crouch > 0.5 ? 0.72 : 1;
+                ch.crouchCur += (cT - ch.crouchCur) * Math.min(1, dt * 10);
+                ch.grp.scale.y = ch.crouchCur;
+                const moving = o.spd > 0.7;
+                if (moving) ch.walkT += dt * (4.5 + o.spd * 1.35);
+                const sw = Math.sin(ch.walkT) * (moving ? clamp(o.spd / 6, 0.15, 1) * 0.8 : 0);
+                ch.legL.rotation.x = sw; ch.legR.rotation.x = -sw;
+                ch.armL.rotation.x = -1.0 + sw * 0.25; ch.armR.rotation.x = -1.15 - sw * 0.25;
+                if (ch.flashT > 0) {
+                    ch.flashT -= dt;
+                    ch.cloth.emissive = ch.cloth.emissive || new THREE.Color(0);
+                    ch.cloth.emissive.setHex(0xaa2222);
+                    ch.cloth.emissiveIntensity = Math.max(0, ch.flashT * 8);
+                }
             }
         }
     }
-    function renderView(cx, cy, ca, cp, bob) {
-        const dirX = Math.cos(ca), dirY = Math.sin(ca);
-        const plX = -dirY * planeLen, plY = dirX * planeLen;
-        const horizon = H / 2 + cp * planeDist + bob;
-        const hz = clamp(horizon, 0, H);
-        let gr = g.createLinearGradient(0, 0, 0, hz || 1);
-        gr.addColorStop(0, "#080a10"); gr.addColorStop(1, "#262b3c");
-        g.fillStyle = gr; g.fillRect(0, 0, W, hz);
-        gr = g.createLinearGradient(0, hz, 0, H);
-        gr.addColorStop(0, "#15151c"); gr.addColorStop(1, "#3b3b48");
-        g.fillStyle = gr; g.fillRect(0, hz, W, H - hz);
-        for (let x = 0; x < W; x++) {
-            const camX = 2 * x / W - 1;
-            const rdx = dirX + plX * camX, rdy = dirY + plY * camX;
-            cast(cx, cy, rdx, rdy);
-            const perp = Math.max(RAY.dist, 0.05);
-            zbuf[x] = perp;
-            const lineH = planeDist / perp;
-            const top = Math.floor(horizon - lineH * 0.5);
-            let wx = RAY.side === 0 ? cy + perp * rdy : cx + perp * rdx;
-            wx -= Math.floor(wx);
-            let tx = (wx * 64) | 0;
-            if (RAY.side === 0 && rdx > 0) tx = 63 - tx;
-            if (RAY.side === 1 && rdy < 0) tx = 63 - tx;
-            const h = Math.ceil(lineH) + 1;
-            g.drawImage(TEX[RAY.type], tx, 0, 1, 64, x, top, 1, h);
-            const shade = Math.min(0.92, perp / 15 + (RAY.side ? 0.16 : 0));
-            if (shade > 0.03) { g.fillStyle = SHADE[Math.round(shade * 20)]; g.fillRect(x, top, 1, h); }
+
+    // ---------- KAMERA & RENDER ----------
+    function updateCamera() {
+        const bobY = Math.sin(self.bobT) * 0.032 * self.bobAmp;
+        const bobX = Math.cos(self.bobT * 0.5) * 0.02 * self.bobAmp;
+        let cx = self.x, cy = self.py + self.eyeCur + bobY, cz = self.z, ya = self.yaw, pi = self.pitch + self.recP;
+        if (!self.alive) {
+            const sid = specTarget();
+            if (sid) {
+                const o = others[sid];
+                cx = o.x; cy = o.py + 1.62; cz = o.z; ya = o.yaw; pi = 0;
+            } else if (deathCam) {
+                cx = deathCam.x; cy = (deathCam.y || 0) + 0.7; cz = deathCam.z; ya = deathCam.a; pi = -0.35;
+            }
         }
-        drawSprites(cx, cy, dirX, dirY, horizon);
+        camera.position.set(cx, cy, cz);
+        camera.rotation.y = ya;
+        camera.rotation.x = clamp(pi, -1.5, 1.5);
+        // silah viewmodel animasyonu
+        if (vmGun) {
+            vmDrop = Math.max(0, vmDrop - 0.016);
+            const rl = self.reloadEnd ? Math.sin(clamp(1 - (self.reloadEnd - performance.now()) / (FPS_WEAPONS[self.cur].reload * 1000), 0, 1) * Math.PI) : 0;
+            const adsX = self.adsCur * -0.24, adsY = self.adsCur * 0.06, adsZ = self.adsCur * 0.16;
+            vm.position.set(
+                0.24 + adsX + bobX * 0.6,
+                -0.23 + adsY + Math.abs(Math.cos(self.bobT * 0.5)) * 0.012 * self.bobAmp - rl * 0.22 - vmDrop,
+                -0.48 + adsZ + self.kick * 0.05
+            );
+            vm.rotation.set(rl * 0.7 + self.kick * 0.06, self.adsCur * 0.06, 0);
+        }
+        // ADS fov
+        const w = FPS_WEAPONS[self.cur];
+        const baseF = w.zoom;
+        const sprintF = self.sprint ? 5 : 0;
+        const targetF = 75 + (baseF - 75) * self.adsCur + sprintF;
+        if (Math.abs(camera.fov - targetF) > 0.1) {
+            camera.fov += (targetF - camera.fov) * 0.18;
+            camera.updateProjectionMatrix();
+        }
+        // dürbün overlay
+        if (!specScope) {
+            specScope = document.createElement("div");
+            specScope.id = "fScope";
+            $("fpsGame").appendChild(specScope);
+        }
+        specScope.style.display = (self.ads && self.cur === 2 && self.alive) ? "block" : "none";
     }
-    function drawWeapon(now) {
-        if (!self.alive) return;
-        const w = WEAPONS[self.cur], s = H / 360;
-        let drop = 0;
-        if (self.reloadEnd) {
-            const p = clamp(1 - (self.reloadEnd - now) / (w.reload * 1000), 0, 1);
-            drop = Math.sin(p * Math.PI) * 70;
-        }
-        const swayX = Math.sin(self.bobT * 0.5) * self.bobAmp * 1.5;
-        const swayY = Math.abs(Math.cos(self.bobT * 0.5)) * self.bobAmp;
-        g.save();
-        g.translate(W * 0.72 + swayX, H + 8 * s + drop + swayY + self.kick * 10);
-        g.rotate(-0.06);
-        let fx, fy;
-        if (self.cur === 0) {
-            g.fillStyle = "#1b1e26"; g.fillRect(-90 * s, -58 * s, 120 * s, 26 * s);
-            g.fillStyle = "#2b303c"; g.fillRect(-90 * s, -58 * s, 120 * s, 6 * s);
-            g.fillStyle = "#0e1014"; g.fillRect(-170 * s, -52 * s, 84 * s, 10 * s);
-            g.fillStyle = "#1b1e26"; g.fillRect(-40 * s, -32 * s, 18 * s, 46 * s);
-            g.fillStyle = "#3b2f24"; g.fillRect(10 * s, -40 * s, 26 * s, 54 * s);
-            g.fillStyle = "#e2b58f"; g.fillRect(-64 * s, -34 * s, 30 * s, 18 * s);
-            fx = -176 * s; fy = -47 * s;
-        } else {
-            g.fillStyle = "#1b1e26"; g.fillRect(-60 * s, -50 * s, 70 * s, 20 * s);
-            g.fillStyle = "#2b303c"; g.fillRect(-60 * s, -50 * s, 70 * s, 5 * s);
-            g.fillStyle = "#3b2f24"; g.fillRect(-10 * s, -32 * s, 22 * s, 42 * s);
-            g.fillStyle = "#e2b58f"; g.fillRect(-14 * s, -26 * s, 26 * s, 16 * s);
-            fx = -66 * s; fy = -42 * s;
-        }
-        if (now - self.lastShotAt < 45) {
-            g.fillStyle = "#fde68a"; g.beginPath();
-            for (let i = 0; i < 8; i++) { const r = i % 2 ? 7 * s : 18 * s, a = i * Math.PI / 4; g.lineTo(fx + Math.cos(a) * r, fy + Math.sin(a) * r); }
-            g.closePath(); g.fill();
-        }
-        g.restore();
+    function specTarget() {
+        const cand = order.filter((id) => id !== myId && others[id] && others[id].got && others[id].alive);
+        return cand.find((id) => teamOf[id] === myTeam) || cand[0] || null;
+    }
+    function renderFrame(dt) {
+        for (const t of tracerPool) if (t.life > 0) t.line.material.opacity = Math.max(0, t.life / 0.09) * 0.9;
+        renderer.render(scene, camera);
     }
 
-    const radarBase = document.createElement("canvas");
-    radarBase.width = MW * 5; radarBase.height = MH * 5;
-    {
-        const c = radarBase.getContext("2d");
-        c.fillStyle = "#070b14"; c.fillRect(0, 0, radarBase.width, radarBase.height);
-        for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-            const t = grid[y * MW + x];
-            if (t) { c.fillStyle = t === 3 ? "#78716c" : "#475569"; c.fillRect(x * 5, y * 5, 5, 5); }
-        }
-    }
-    function drawRadar() {
-        rg.drawImage(radarBase, 0, 0);
-        rg.fillStyle = TEAM_COL[myTeam];
-        for (const id in others) {
-            const o = others[id];
-            if (teamOf[id] !== myTeam || o.first || deadSet.has(id)) continue;
-            rg.fillRect(o.x * 5 - 2, o.y * 5 - 2, 5, 5);
-        }
-        if (self.alive) {
-            rg.fillStyle = "#fff"; rg.fillRect(self.x * 5 - 2, self.y * 5 - 2, 5, 5);
-            rg.strokeStyle = "#fff"; rg.lineWidth = 1.5;
-            rg.beginPath(); rg.moveTo(self.x * 5, self.y * 5); rg.lineTo(self.x * 5 + Math.cos(self.a) * 9, self.y * 5 + Math.sin(self.a) * 9); rg.stroke();
-        }
-    }
-
+    // ---------- HUD ----------
     const cache = {};
     function setHtml(id, html) { if (cache[id] !== html) { cache[id] = html; $(id).innerHTML = html; } }
     function setText(id, t) { if (cache[id] !== t) { cache[id] = t; $(id).textContent = t; } }
-    function specTarget() {
-        const cand = order.filter((id) => id !== myId && !deadSet.has(id) && others[id] && !others[id].first);
-        return cand.find((id) => teamOf[id] === myTeam) || cand[0] || null;
-    }
     function updateHud() {
-        const alive = [0, 0];
-        net.state().players.forEach((p) => { if (!deadSet.has(p.id)) alive[p.team]++; });
+        const aliveC = [0, 0];
+        net.state().players.forEach((p) => { if (!deadSet.has(p.id)) aliveC[p.team]++; });
         const tl = S.round === 0 ? "--" : fmtTime(S.phase === "over" ? 0 : S.timeLeft);
         setHtml("fScore",
-            `<span class="team" style="color:${TEAM_LIGHT[0]}">MAVİ <span class="sc">${S.scores[0]}</span> <small>${"●".repeat(alive[0])}</small></span>` +
-            `<div class="mid"><b>${tl}</b>Raund ${Math.max(1, S.round)}</div>` +
-            `<span class="team" style="color:${TEAM_LIGHT[1]}"><small>${"●".repeat(alive[1])}</small> <span class="sc">${S.scores[1]}</span> KIRMIZI</span>`);
-        setText("fHpText", "❤ " + Math.ceil(self.hp) + (maxHp > 100 ? "  (+50)" : ""));
-        const bar = $("fHpBar").firstElementChild, ratio = self.hp / maxHp;
+            `<span class="team" style="color:${TEAM_LIGHT[0]}">MAVİ <span class="sc">${S.scores[0]}</span> <small>${"●".repeat(aliveC[0])}</small></span>` +
+            `<div class="mid"><b>${tl}</b>${S.phase === "vote" ? "Oylama" : "Raund " + Math.max(1, S.round)}</div>` +
+            `<span class="team" style="color:${TEAM_LIGHT[1]}"><small>${"●".repeat(aliveC[1])}</small> <span class="sc">${S.scores[1]}</span> KIRMIZI</span>`);
+        setText("fHpText", "❤ " + Math.ceil(self.hp));
+        const bar = $("fHpBar").firstElementChild, ratio = self.hp / MAX_HP;
         bar.style.width = (ratio * 100) + "%";
         bar.style.background = ratio > 0.5 ? "#22c55e" : ratio > 0.25 ? "#f59e0b" : "#ef4444";
+        const w = FPS_WEAPONS[self.cur];
         setText("fAmmoText", self.reloadEnd ? "…" : String(self.ammo[self.cur]));
-        setText("fWeaponText", WEAPONS[self.cur].name + (self.reloadEnd ? " • şarjör değişiyor" : "") + "  [1/2]");
+        setText("fWeaponText", w.name + (self.reloadEnd ? " • şarjör değişiyor" : "") + "  [1-5 | B]");
 
         let big = "", sub = "", col = "#fff";
-        if (S.round === 0) big = "Bekleniyor…";
+        if (S.phase === "vote") { big = "HARİTA OYLAMASI"; sub = "Haritayı seç!"; col = "#38bdf8"; }
+        else if (S.round === 0) big = "Bekleniyor…";
         else if (S.phase === "freeze") { big = "RAUND " + S.round; sub = "Hazırlan… " + Math.ceil(S.timeLeft); }
         else if (S.phase === "live" && S.timeLeft > ROUND_TIME - 1.2) { big = "BAŞLA!"; col = "#4ade80"; }
         else if (S.phase === "roundend") {
@@ -2483,40 +3050,35 @@ function startFps(net) {
         setHtml("fBanner", big ? `<b style="color:${col}">${big}</b><span>${sub}</span>` : "");
         const spec = !self.alive ? specTarget() : null;
         setText("fSpec", !self.alive ? (spec ? "Öldün — " + names[spec] + " izleniyor" : "Öldün") : "");
-        $("xh").style.display = self.alive && locked ? "block" : "none";
-        $("xh").style.setProperty("--gap", (3 + currentSpread() * planeDist * (window.innerHeight / H) * 0.6) + "px");
+        $("xh").style.display = self.alive && locked && !inMenu ? "block" : "none";
+        const gapPx = 3 + currentSpread() * 1400 * (1 - self.adsCur * 0.8);
+        $("xh").style.setProperty("--gap", gapPx.toFixed(1) + "px");
     }
 
+    // ---------- ANA DÖNGÜ ----------
     let last = performance.now(), lastSend = 0;
     function frame(now) {
         if (destroyed) return;
         raf = requestAnimationFrame(frame);
         const dt = Math.min(0.05, (now - last) / 1000); last = now;
-        if (S.round > 0 && S.phase !== "over") S.timeLeft = Math.max(0, S.timeLeft - dt);
+        if (S.phase !== "over" && S.phase !== "vote") S.timeLeft = Math.max(0, S.timeLeft - dt);
         hostTick();
         updateSelf(dt);
         updateWeapon(dt, now);
-        for (const id in others) {
-            const o = others[id], k = Math.min(1, dt * 15);
-            o.x += (o.tx - o.x) * k; o.y += (o.ty - o.y) * k;
-            o.a += angDiff(o.ta, o.a) * k;
-        }
-        if (self.alive && now - lastSend > 50) {
+        updateOthers(dt);
+        updateFx(dt);
+        if (self.alive && S.phase !== "vote" && now - lastSend > 50) {
             lastSend = now;
-            net.send({ k: "p", x: Math.round(self.x * 100) / 100, y: Math.round(self.y * 100) / 100, a: Math.round(self.a * 100) / 100 });
+            net.send({
+                k: "p", x: r2(self.x), y: r2(self.py), z: r2(self.z),
+                a: r2(self.yaw), c: self.crouch ? 1 : 0, m: self.moving ? 1 : 0, w: self.cur,
+            });
         }
-        let cam;
-        if (self.alive) cam = { x: self.x, y: self.y, a: self.a, p: self.pitch + self.recoil, bob: Math.sin(self.bobT) * self.bobAmp };
-        else {
-            const sid = specTarget();
-            if (sid) { const o = others[sid]; cam = { x: o.x, y: o.y, a: o.a, p: 0, bob: 0 }; }
-            else { const d = deathCam || self; cam = { x: d.x, y: d.y, a: d.a, p: 0, bob: 0 }; }
-        }
-        renderView(cam.x, cam.y, cam.a, cam.p, cam.bob);
-        drawWeapon(now);
-        drawRadar();
+        updateCamera();
         updateHud();
+        renderFrame(dt);
     }
+    const r2 = (v) => Math.round(v * 100) / 100;
     raf = requestAnimationFrame(frame);
 
     return {
@@ -2524,26 +3086,54 @@ function startFps(net) {
             switch (d.k) {
                 case "p": {
                     const o = others[from]; if (!o) break;
-                    o.tx = d.x; o.ty = d.y; o.ta = d.a;
-                    if (o.first) { o.x = d.x; o.y = d.y; o.a = d.a; o.first = false; }
+                    o.tx = d.x; o.tpy = d.y; o.tz = d.z; o.tyaw = d.a; o.crouch = d.c;
+                    if (o.got === false) { o.x = d.x; o.y = d.y; o.z = d.z; o.py = d.y; o.yaw = d.a; o.got = true; }
                     break;
                 }
                 case "S":
                     if (from === net.state().host) { S = d.S; afterState(); }
                     break;
+                case "V":
+                    voteCounts = d.c || voteCounts; voteN = d.n || 0;
+                    if (fpsVoteModal && fpsVoteModal.style.display !== "none") renderVoteModal();
+                    break;
+                case "vote": hostAddVote(from, d.m); break;
                 case "shot": {
-                    const dist = Math.hypot(d.x - self.x, d.y - self.y);
-                    sfxShot(clamp(1 - dist / 25, 0.08, 0.7));
+                    const dist = Math.hypot(d.x - self.x, d.z - self.z);
+                    if (dist > 1.5) {
+                        sfxShot(0, clamp(1 - dist / 30, 0.06, 0.65));
+                        remoteFlash(new THREE.Vector3(d.x, d.y, d.z));
+                        camera.getWorldPosition(tmpA);
+                        const dir = new THREE.Vector3(d.x - tmpA.x, d.y - tmpA.y, d.z - tmpA.z);
+                        const len = dir.length();
+                        if (len > 0.5) {
+                            dir.normalize().addScaledVector(new THREE.Vector3((Math.random() - 0.5) * 0.12, (Math.random() - 0.5) * 0.12, (Math.random() - 0.5) * 0.12), 1);
+                            dir.normalize();
+                            spawnTracer(new THREE.Vector3(d.x, d.y, d.z),
+                                new THREE.Vector3(d.x + dir.x * Math.min(len, 26), d.y + dir.y * Math.min(len, 26), d.z + dir.z * Math.min(len, 26)));
+                        }
+                    }
                     break;
                 }
                 case "dmg": takeDamage(d.amt, d.head, from); break;
                 case "died":
                     if (!deadSet.has(from)) { deadSet.add(from); addKill(d.by, from, d.head); }
+                    if (others[from]) setCorpse(others[from]);
                     break;
             }
         },
         onRoomState(s) {
-            for (const id in others) if (!s.players.some((p) => p.id === id)) delete others[id];
+            for (const id in others) {
+                if (!s.players.some((p) => p.id === id)) {
+                    scene.remove(others[id].ch.grp);
+                    delete others[id]; delete names[id]; delete teamOf[id];
+                }
+            }
+            s.players.forEach((p) => {
+                names[p.id] = p.name; teamOf[p.id] = p.team;
+                if (!others[p.id] && p.id !== myId) others[p.id] = mkOther(p);
+                else if (others[p.id]) others[p.id].name = p.name;
+            });
             refreshEndButton(net);
         },
         destroy() {
@@ -2552,10 +3142,24 @@ function startFps(net) {
             cleanups.forEach((f) => f());
             timers.forEach(clearTimeout);
             if (document.exitPointerLock) document.exitPointerLock();
+            disposeMap();
+            for (const id in others) scene.remove(others[id].ch.grp);
+            scene.traverse((o) => {
+                if (o.geometry) o.geometry.dispose();
+                if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
+            });
+            renderer.dispose();
+            if (fpsVoteModal) { fpsVoteModal.remove(); fpsVoteModal = null; }
+            if (wMenu) { wMenu.remove(); wMenu = null; }
+            if (specScope) { specScope.remove(); specScope = null; }
+            delete window.fpsCastVote; delete window.fpsPickWeapon;
+            inMenu = false;
             $("fpsGame").classList.add("hidden");
+            $("fpsRadar").style.display = "";
             $("fLock").style.display = "flex";
             $("fKillfeed").innerHTML = "";
             $("fDamage").style.opacity = "0";
+            $("fHit").style.opacity = "0";
         },
     };
 }
