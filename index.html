@@ -440,12 +440,6 @@ input:focus { outline: none; border-color: #38bdf8; }
         <div id="fSpec"></div>
         <div id="fHp" class="pill"><span id="fHpText">100</span><div id="fHpBar"><div></div></div></div>
         <div id="fAmmo" class="pill"><b id="fAmmoText">30</b><small id="fWeaponText">Tüfek</small></div>
-        <div id="fLock" class="overlay">
-            <h2>ÇATIŞMA</h2>
-            <p>Oynamak için tıkla.<br>
-            <b>WASD</b> hareket • <b>Fare</b> nişan • <b>Sol tık</b> ateş • <b>R</b> şarjör • <b>1-5/B</b> silahlar • <b>Sağ tık</b> dürbün • <b>Space</b> zıpla • <b>C</b> çömel • <b>Shift</b> koş<br>
-            <b>📱 Mobil:</b> sol joystick yürü • ekranı sürükle nişan al • sağdaki butonları kullan</p>
-        </div>
     </div>
 
     <!-- 3D POLİS KOVALAMACASI & ÇATIŞMA -->
@@ -517,6 +511,23 @@ input:focus { outline: none; border-color: #38bdf8; }
 <script>
 "use strict";
 // ===================================================================
+//  SEKME KAPATMA KORUMASI (Ctrl+W / Ctrl+Shift+W / Cmd+W)
+//  beforeunload ile "sayfadan ayrıl" onayı + yakalanabilir kısayolları blokla
+// ===================================================================
+document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "w" || e.key === "W" || e.code === "KeyW")) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+window.addEventListener("beforeunload", (e) => {
+    // odadayken kazara kapatmaya karşı onay sor (tarayıcı standardı mesaj gösterir)
+    if (roomState || localStorage.getItem("odaSession")) {
+        e.preventDefault();
+        e.returnValue = "";
+    }
+});
+// ===================================================================
 //  BAĞLANTI + LOBİ
 // ===================================================================
 const WS_URL = "wss://oyun-sunucusu-cd47.onrender.com";
@@ -548,6 +559,11 @@ function connect() {
         $("connBanner").classList.add("hidden");
         if (!tryRejoin()) $("connBanner").classList.add("hidden");
     };
+    ws.addEventListener("open", function beatLoop() {
+        // ekran durumu bildirimi: sekme görünürken 3 sn'de bir açık sinyali
+        wsSend({ action: "heartbeat", open: !document.hidden });
+        if (ws && ws.readyState === 1) setTimeout(beatLoop, 3000);
+    });
     ws.onclose = () => {
         wsReady = false;
         if (currentGame) { currentGame.destroy(); currentGame = null; }
@@ -603,6 +619,10 @@ function onWsMessage(event) {
         case "relay": if (currentGame) currentGame.onRelay(msg.from, msg.data); break;
         case "chat": appendChat(msg.from, msg.text, msg.team); break;
         case "signal": handleSignal(msg); break;
+        case "countdown":
+            // sunucu taraflı geri sayım: herkeste birebir aynı değer
+            if (currentGame && currentGame.onCountdown) currentGame.onCountdown(msg);
+            break;
         case "error":
             showError(msg.message);
             // rejoin denemesi başarısızsa (oda kapandı vs.) oturumu temizle
@@ -2810,6 +2830,7 @@ function startFps(net) {
             commit(); return;
         }
         if (S.phase === "freeze") {
+            // süre sunucudan gelir ("cd" relay'i); 0'a inince raund başlat
             if (S.timeLeft <= 0) { S.phase = "live"; S.timeLeft = ROUND_TIME; commit(); }
         } else if (S.phase === "live") {
             if (alive[0] === 0 || alive[1] === 0) endRound(alive[0] === alive[1] ? null : (alive[0] > 0 ? 0 : 1));
@@ -2832,13 +2853,10 @@ function startFps(net) {
     }
 
     // ---------- GİRİŞ (fare + klavye) ----------
-    const lockEl = $("fLock");
-    if (IS_MOBILE) lockEl.style.display = "none"; // mobilde pointer lock yok
-    on(lockEl, "click", () => { $("fpsCanvas").requestPointerLock(); actx(); });
-    on($("fpsCanvas"), "click", () => { if (!locked && !inMenu) $("fpsCanvas").requestPointerLock(); });
+    const lockEl = null; // kilit ekranı kaldırıldı: canvas'a tıkla -> pointer lock + Esc/☰ -> pause menü
+    on($("fpsCanvas"), "click", () => { actx(); if (!locked && !inMenu) $("fpsCanvas").requestPointerLock(); });
     on(document, "pointerlockchange", () => {
         locked = document.pointerLockElement === $("fpsCanvas");
-        lockEl.style.display = locked ? "none" : "flex";
         if (!locked) fireHeld = false;
     });
     on(document, "mousemove", (e) => {
@@ -3432,11 +3450,13 @@ function startFps(net) {
 
     // ---------- ANA DÖNGÜ ----------
     let last = performance.now(), lastSend = 0;
+    let onCountdownImpl = null;
     function frame(now) {
         if (destroyed) return;
         raf = requestAnimationFrame(frame);
         const dt = Math.min(0.05, (now - last) / 1000); last = now;
-        if (S.phase !== "over" && S.phase !== "vote") S.timeLeft = Math.max(0, S.timeLeft - dt);
+        // freeze süresi sunucudan gelir; lokal saymayı durdur
+        if (S.phase !== "over" && S.phase !== "vote" && S.phase !== "freeze") S.timeLeft = Math.max(0, S.timeLeft - dt);
         hostTick();
         updateSelf(dt);
         updateWeapon(dt, now);
@@ -3456,7 +3476,27 @@ function startFps(net) {
     const r2 = (v) => Math.round(v * 100) / 100;
     raf = requestAnimationFrame(frame);
 
+    // ekran açık/kapalı bildirimi (sunucu geri sayımı için) + sekme görünürlüğü
+    on(document, "visibilitychange", () => {
+        wsSend({ action: "heartbeat", open: !document.hidden });
+        if (!document.hidden) last = performance.now();
+    });
+    on(window, "pagehide", () => wsSend({ action: "heartbeat", open: false }));
+
+    // host: sunucudan gelen geri sayımı herkese relay eder (herkeste birebir aynı)
+    let lastCdSent = -1;
+    onCountdownImpl = (m) => {
+        if (!net.isHost()) return;
+        const t = Math.round(m.timeLeft * 10) / 10;
+        if (t !== lastCdSent) {
+            lastCdSent = t;
+            net.send({ k: "cd", t });
+        }
+        if (m.timeLeft <= 0 && S.phase === "freeze") { S.phase = "live"; S.timeLeft = ROUND_TIME; commit(); }
+    };
+
     return {
+        onCountdown: (m) => { if (onCountdownImpl) onCountdownImpl(m); },
         onRelay(from, d) {
             switch (d.k) {
                 case "p": {
@@ -3467,6 +3507,10 @@ function startFps(net) {
                 }
                 case "S":
                     if (from === net.state().host) { S = d.S; afterState(); }
+                    break;
+                case "cd":
+                    // host, sunucudan aldığı geri sayımı relay eder — herkes birebir aynı
+                    S.timeLeft = d.t;
                     break;
                 case "V":
                     voteCounts = d.c || voteCounts; voteN = d.n || 0;
@@ -3533,7 +3577,6 @@ function startFps(net) {
             inMenu = false;
             $("fpsGame").classList.add("hidden");
             $("fpsRadar").style.display = "";
-            $("fLock").style.display = "flex";
             $("fKillfeed").innerHTML = "";
             $("fDamage").style.opacity = "0";
             $("fHit").style.opacity = "0";
