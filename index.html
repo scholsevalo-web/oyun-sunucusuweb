@@ -305,11 +305,13 @@ input:focus { outline: none; border-color: #38bdf8; }
     <!-- HAPİSHANEDEN KAÇIŞ (%100 GERÇEK THREE.JS 3D) -->
     <div class="hidden" id="prisonGame">
         <canvas id="prisonCanvas" class="full"></canvas>
-        <div id="p3dModeBadge" class="pill" style="position:absolute;top:14px;right:14px;color:#38bdf8;font-weight:bold;z-index:20;">🎮 3D ÜÇÜNCÜ ŞAHIS (A Way Out)</div>
+        <div id="pRedVignette" style="position:absolute;inset:0;background:radial-gradient(circle, rgba(239,68,68,0) 40%, rgba(239,68,68,0.7) 100%);opacity:0;pointer-events:none;transition:opacity 0.25s;z-index:18;"></div>
+        <div id="p3dModeBadge" class="pill" style="position:absolute;top:14px;right:14px;color:#38bdf8;font-weight:bold;z-index:20;">🎮 3D ÜÇÜNCÜ ŞAHIS (A Way Out Tarzı)</div>
         <div id="pHudTop" style="z-index:20;">
             <div class="pill" id="pKeys">🔑 0/3</div>
             <div class="pill" id="pTime">00:00</div>
             <div class="pill" id="pCaught">🚨 0</div>
+            <div class="pill" id="pCheckpoint" style="color:#4ade80;">📍 Başlangıç Hücreleri</div>
         </div>
         <div id="pParty" style="z-index:20;"></div>
         <canvas id="prisonMini" width="160" height="96" style="z-index:20;"></canvas>
@@ -318,6 +320,26 @@ input:focus { outline: none; border-color: #38bdf8; }
         <div class="pill" id="pPrompt" style="z-index:20;"></div>
         <div id="pProgress" style="z-index:20;"><div></div></div>
         <div class="pill" id="pToast" style="z-index:20;"></div>
+
+        <!-- A WAY OUT CO-OP KARAR HALKASI (SEÇİM ÇARKI) -->
+        <div id="awoChoiceModal" style="position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:none;align-items:center;gap:24px;z-index:100;user-select:none;pointer-events:auto;">
+            <div id="awoOptLeft" class="awoChoiceCard" style="text-align:right;cursor:pointer;width:250px;background:rgba(15,23,42,0.92);padding:14px 18px;border-radius:12px;border:2px solid #475569;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.25s;">
+                <b id="awoLeftTitle" style="color:#facc15;font-size:15px;display:block;letter-spacing:0.5px;">SEÇENEK A</b>
+                <small id="awoLeftDesc" style="color:#cbd5e1;font-size:12px;line-height:1.4;display:block;margin-top:4px;">Açıklama</small>
+                <div style="font-size:11px;color:#38bdf8;font-weight:bold;margin-top:6px;">[A / ◄ SOLA YATIR]</div>
+            </div>
+            
+            <div id="awoWheelRing" style="position:relative;width:82px;height:82px;border-radius:50%;border:4px solid #facc15;background:rgba(2,6,23,0.95);box-shadow:0 0 24px rgba(250,204,21,0.55);display:flex;align-items:center;justify-content:center;transition:all 0.2s;">
+                <div id="awoWheelCore" style="width:16px;height:16px;border-radius:50%;background:#facc15;box-shadow:0 0 12px #facc15;"></div>
+                <div id="awoPlayerDots" style="position:absolute;inset:0;pointer-events:none;"></div>
+            </div>
+
+            <div id="awoOptRight" class="awoChoiceCard" style="text-align:left;cursor:pointer;width:250px;background:rgba(15,23,42,0.92);padding:14px 18px;border-radius:12px;border:2px solid #475569;box-shadow:0 8px 24px rgba(0,0,0,0.6);transition:all 0.25s;">
+                <b id="awoRightTitle" style="color:#facc15;font-size:15px;display:block;letter-spacing:0.5px;">SEÇENEK B</b>
+                <small id="awoRightDesc" style="color:#cbd5e1;font-size:12px;line-height:1.4;display:block;margin-top:4px;">Açıklama</small>
+                <div style="font-size:11px;color:#38bdf8;font-weight:bold;margin-top:6px;">[D / ► SAĞA YATIR]</div>
+            </div>
+        </div>
     </div>
 
     <!-- FPS -->
@@ -745,8 +767,8 @@ function startPrison(net) {
     const T = 32, R = 9;
     const MW = PRISON_MAP[0].length, MH = PRISON_MAP.length;
     const KEYS_NEEDED = 3;
-    const VIS = 6 * T, CONE = 0.62, HEAR = 4 * T;
-    const WALK = 105, RUN = 165, GUARD_PATROL = 62, GUARD_CHASE = 122;
+    const VIS = 6.5 * T, CONE = 0.65, HEAR = 4.5 * T;
+    const WALK = 110, RUN = 175, CROUCH = 60, GUARD_PATROL = 60, GUARD_CHASE = 125;
     const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
     const cleanups = [];
@@ -754,7 +776,7 @@ function startPrison(net) {
     let raf = 0, dead = false, ended = false;
 
     $("prisonGame").classList.remove("hidden");
-    const cvs = $("prisonCanvas"), g = cvs.getContext("2d");
+    const cvs = $("prisonCanvas");
     const mini = $("prisonMini"), mg = mini.getContext("2d");
 
     const myId = net.myId();
@@ -762,34 +784,37 @@ function startPrison(net) {
     const order = rs0.players.map((p) => p.id);
     const names = {};
     rs0.players.forEach((p) => { names[p.id] = p.name; });
-    const COLORS = ["#38bdf8", "#f87171", "#facc15", "#4ade80"];
+    const COLORS = ["#f97316", "#38bdf8", "#4ade80", "#f472b6"];
     const colorOf = (id) => COLORS[Math.max(0, order.indexOf(id)) % 4];
 
-    function resize() {
-        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-        cvs.width = Math.floor(window.innerWidth * dpr);
-        cvs.height = Math.floor(window.innerHeight * dpr);
-    }
-    resize();
-    on(window, "resize", resize);
-
+    // Harita Yapısı
     const solid = new Uint8Array(MW * MH);
     const exitZone = new Uint8Array(MW * MH);
+    const cellBars = new Uint8Array(MW * MH);
     const spawns = [], keys = [], doors = [], plates = [];
     const doorAt = {};
+
     for (let y = 0; y < MH; y++) {
         for (let x = 0; x < MW; x++) {
             const ch = PRISON_MAP[y][x], i = y * MW + x;
-            if (ch === "#") solid[i] = 1;
-            else if (ch >= "1" && ch <= "4") spawns[Number(ch) - 1] = { x, y };
-            else if (ch === "k") keys.push({ id: "k" + keys.length, x, y, got: false });
-            else if (ch === "c" || ch === "A" || ch === "X") {
-                const d = { id: "d" + doors.length, kind: ch === "c" ? "cell" : ch === "A" ? "plate" : "gate", grp: ch, x, y, open: false };
+            if (ch === "#") {
+                solid[i] = 1;
+                if (y === 4 && (x < 16)) cellBars[i] = 1; // Hücrelerin koridor cephesi demir parmaklık
+            } else if (ch >= "1" && ch <= "4") {
+                spawns[Number(ch) - 1] = { x, y };
+            } else if (ch === "k") {
+                keys.push({ id: "k" + keys.length, x, y, got: false });
+            } else if (ch === "c" || ch === "A" || ch === "X") {
+                const d = { id: "d" + doors.length, kind: ch === "c" ? "cell" : ch === "A" ? "plate" : "gate", grp: ch, x, y, open: false, slideOffset: 0 };
                 doors.push(d); doorAt[i] = d;
-            } else if (ch === "a") plates.push({ grp: "A", x, y, pressed: false });
-            else if (ch === "E") exitZone[i] = 1;
+            } else if (ch === "a") {
+                plates.push({ grp: "A", x, y, pressed: false, depress: 0 });
+            } else if (ch === "E") {
+                exitZone[i] = 1;
+            }
         }
     }
+
     const tileIdx = (px, py) => {
         const tx = Math.floor(px / T), ty = Math.floor(py / T);
         return (tx < 0 || ty < 0 || tx >= MW || ty >= MH) ? -1 : ty * MW + tx;
@@ -815,27 +840,48 @@ function startPrison(net) {
         return true;
     }
 
+    // CHECKPOINT SISTEMI
+    const CHECKPOINTS = [
+        { id: 0, name: "Hücre Bloğu (Başlangıç)", x: spawns[0] ? spawns[0].x : 2, y: spawns[0] ? spawns[0].y : 2 },
+        { id: 1, name: "Ana Koridor Geçişi", x: 6, y: 7 },
+        { id: 2, name: "Atölye & Jeneratör", x: 20, y: 13 },
+        { id: 3, name: "Dış Güvenlik Kapısı", x: 34, y: 18 }
+    ];
+    let currentCp = 0;
+
     const myIdx = Math.max(0, order.indexOf(myId));
     const mySpawn = spawns[myIdx] || spawns[0];
-    const me = { x: mySpawn.x * T + T / 2, y: mySpawn.y * T + T / 2, stamina: 100, tired: false, sprint: false, noisy: false, picking: false, escaped: false, safeUntil: 0 };
+    const me = {
+        x: mySpawn.x * T + T / 2, y: mySpawn.y * T + T / 2,
+        rot: 0,
+        stamina: 100, tired: false, sprint: false, crouch: false,
+        noisy: false, picking: false, escaped: false, safeUntil: 0,
+        animTime: 0
+    };
     const others = {};
     order.forEach((id, idx) => {
         if (id === myId) return;
         const s = spawns[idx] || spawns[0];
         const x = s.x * T + T / 2, y = s.y * T + T / 2;
-        others[id] = { id, x, y, tx: x, ty: y, sprint: false, escaped: false, safeUntil: 0 };
+        others[id] = { id, x, y, tx: x, ty: y, rot: 0, sprint: false, crouch: false, escaped: false, safeUntil: 0, animTime: 0 };
     });
-    let keysGot = 0, totalCaught = 0, myCaught = 0;
+
+    let keysGot = 0, totalCaught = 0;
     const t0 = performance.now();
     let endTime = 0;
 
     const guards = PRISON_GUARDS.map((def, i) => {
         const p = def.wp[0];
         const x = p[0] * T + T / 2, y = p[1] * T + T / 2;
-        return { i, wp: def.wp, wpIdx: 1 % def.wp.length, x, y, dir: 0, state: 0, nx: x, ny: y, ndir: 0,
-                 path: [], pathKey: "", pathTime: 0, tx: 0, ty: 0, lastSeen: 0, wait: 0 };
+        return {
+            i, wp: def.wp, wpIdx: 1 % def.wp.length,
+            x, y, dir: 0, state: 0, nx: x, ny: y, ndir: 0,
+            path: [], pathKey: "", pathTime: 0, tx: 0, ty: 0,
+            lastSeen: 0, wait: 0, suspicion: 0, animTime: 0
+        };
     });
 
+    // BFS Guard Pathfinding
     const bfsPrev = new Int32Array(MW * MH), bfsQ = new Int32Array(MW * MH);
     function bfs(sx, sy, tx, ty) {
         const s = tileIdx(sx, sy), t = tileIdx(tx, ty);
@@ -885,34 +931,49 @@ function startPrison(net) {
     }
 
     function onGuardAlert(gd) {
-        if (Math.hypot(gd.x - me.x, gd.y - me.y) < 9 * T) tone(520, 0.25, "sawtooth", 0.12, 260);
+        if (Math.hypot(gd.x - me.x, gd.y - me.y) < 12 * T) {
+            tone(540, 0.25, "sawtooth", 0.15, 270);
+            pToast("🚨 GARDİYAN SENİ FARK ETTİ! Saklan!");
+        }
     }
 
-    function updateGuards(dt, now) {
-        const ents = [{ id: myId, x: me.x, y: me.y, noisy: me.noisy, escaped: me.escaped, safe: me.safeUntil }];
-        for (const id in others) { const o = others[id]; ents.push({ id, x: o.x, y: o.y, noisy: o.sprint, escaped: o.escaped, safe: o.safeUntil }); }
-        for (const gd of guards) {
-            if (gd.suspicion === undefined) gd.suspicion = 0; // A Way Out Tarzı Şüphe / Fark Edilme Göstergesi
+    let steamActive = false, blackoutActive = false;
 
+    function updateGuards(dt, now) {
+        const ents = [{ id: myId, x: me.x, y: me.y, noisy: me.noisy, crouch: me.crouch, escaped: me.escaped, safe: me.safeUntil }];
+        for (const id in others) {
+            const o = others[id];
+            ents.push({ id, x: o.x, y: o.y, noisy: o.sprint, crouch: o.crouch, escaped: o.escaped, safe: o.safeUntil });
+        }
+
+        for (const gd of guards) {
             let seen = null, seenD = 1e9, heard = null, heardD = 1e9;
+            const currentVis = (blackoutActive ? VIS * 0.35 : steamActive ? VIS * 0.5 : VIS);
+
             for (const e of ents) {
                 if (e.escaped || now < e.safe) continue;
                 const dx = e.x - gd.x, dy = e.y - gd.y, d = Math.hypot(dx, dy);
-                const inCone = d < VIS && Math.abs(angDiff(Math.atan2(dy, dx), gd.dir)) < CONE;
-                if ((inCone || d < T * 1.1) && los(gd.x, gd.y, e.x, e.y)) { if (d < seenD) { seenD = d; seen = e; } }
-                else if (e.noisy && d < HEAR && d < heardD) { heardD = d; heard = e; }
+                const angleTo = Math.abs(angDiff(Math.atan2(dy, dx), gd.dir));
+                const stealthMod = e.crouch ? 0.45 : 1.0;
+                const inCone = (d < currentVis * stealthMod) && (angleTo < CONE * (e.crouch ? 0.7 : 1.0));
+
+                if ((inCone || d < T * 1.1) && los(gd.x, gd.y, e.x, e.y)) {
+                    if (d < seenD) { seenD = d; seen = e; }
+                } else if (e.noisy && !e.crouch && d < HEAR && d < heardD) {
+                    heardD = d; heard = e;
+                }
             }
 
             if (seen) {
-                // Görüş açısında kalındıkça üçgen gösterge dolar (0'dan 100'e)
                 const fillRate = (seenD < T * 2.5) ? 140 : 85;
-                gd.suspicion = Math.min(100, gd.suspicion + dt * fillRate);
+                const crouchFillMod = seen.crouch ? 0.45 : 1.0;
+                gd.suspicion = Math.min(100, gd.suspicion + dt * fillRate * crouchFillMod);
 
                 if (gd.suspicion >= 100) {
                     if (gd.state !== 1) onGuardAlert(gd);
                     gd.state = 1; gd.lastSeen = now; gd.tx = seen.x; gd.ty = seen.y;
-                } else if (gd.suspicion > 30) {
-                    gd.state = 2; // Şüphelenme aşaması (Sarı Üçgen)
+                } else if (gd.suspicion > 25) {
+                    gd.state = 2; // Şüphelenme aşaması
                     gd.tx = seen.x; gd.ty = seen.y;
                 }
             } else {
@@ -930,7 +991,7 @@ function startPrison(net) {
 
             let speed, tx, ty;
             if (gd.state === 1) { speed = GUARD_CHASE; tx = gd.tx; ty = gd.ty; }
-            else if (gd.state === 2) { speed = GUARD_PATROL * 1.3; tx = gd.tx; ty = gd.ty; }
+            else if (gd.state === 2) { speed = GUARD_PATROL * 1.35; tx = gd.tx; ty = gd.ty; }
             else { speed = GUARD_PATROL; const wp = gd.wp[gd.wpIdx]; tx = wp[0] * T + T / 2; ty = wp[1] * T + T / 2; }
             const arrived = stepToward(gd, tx, ty, speed, dt, now);
             if (arrived) {
@@ -942,13 +1003,14 @@ function startPrison(net) {
     }
 
     const grpUntil = { A: 0 };
-    function updateDoors(now) {
+    function updateDoors(now, dt) {
         const alone = net.state().players.length < 2;
         for (const pl of plates) {
             const cx = pl.x * T + T / 2, cy = pl.y * T + T / 2;
-            let pressed = !me.escaped && Math.hypot(me.x - cx, me.y - cy) < T * 0.7;
-            for (const id in others) { const o = others[id]; if (!o.escaped && Math.hypot(o.x - cx, o.y - cy) < T * 0.7) pressed = true; }
+            let pressed = !me.escaped && Math.hypot(me.x - cx, me.y - cy) < T * 0.75;
+            for (const id in others) { const o = others[id]; if (!o.escaped && Math.hypot(o.x - cx, o.y - cy) < T * 0.75) pressed = true; }
             pl.pressed = pressed;
+            pl.depress = THREE.MathUtils.lerp(pl.depress, pressed ? 0.16 : 0, dt * 10);
             if (pressed) grpUntil[pl.grp] = now + 1200;
         }
         for (const d of doors) {
@@ -960,7 +1022,10 @@ function startPrison(net) {
                     for (const id in others) { const o = others[id]; if (Math.abs(o.x - cx) < T && Math.abs(o.y - cy) < T) open = true; }
                 }
                 d.open = open;
-            } else if (d.kind === "gate") d.open = keysGot >= KEYS_NEEDED;
+            } else if (d.kind === "gate") {
+                d.open = keysGot >= KEYS_NEEDED;
+            }
+            d.slideOffset = THREE.MathUtils.lerp(d.slideOffset, d.open ? (d.kind === "cell" ? 2.5 : 4.6) : 0, dt * 5);
         }
     }
 
@@ -968,16 +1033,30 @@ function startPrison(net) {
     on(window, "keydown", (e) => {
         keysDown[e.code] = true;
         if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+        if (e.code === "KeyC") {
+            me.crouch = !me.crouch;
+            pToast(me.crouch ? "Çömelindi: Sessiz ve gizli mod aktif" : "Ayağa kalkıldı");
+        }
+        // A Way Out Karar Halkası Tuş Kontrolleri
+        if (activeCoopChoice) {
+            if (e.code === "KeyA" || e.code === "ArrowLeft") {
+                voteCoopChoice("left", myId);
+                net.send({ k: "awo_vote", s: "left" });
+            } else if (e.code === "KeyD" || e.code === "ArrowRight") {
+                voteCoopChoice("right", myId);
+                net.send({ k: "awo_vote", s: "right" });
+            }
+        }
     });
     on(window, "keyup", (e) => { keysDown[e.code] = false; });
     on(window, "blur", () => { for (const k in keysDown) keysDown[k] = false; });
 
-    // Mobil için klavye yerine ekran üstü yön ve etkileşim tuşları.
+    // Mobil Kontroller
     let mobileControls = null;
-    if (matchMedia("(pointer: coarse)").matches) {
+    if (matchMedia("(pointer: coarse)").matches || window.innerWidth < 900) {
         mobileControls = document.createElement("div");
         mobileControls.id = "pMobileControls";
-        mobileControls.innerHTML = `<div class="pJoy"><i></i></div><div class="pActions"><button class="pRun" data-k="ShiftLeft">KOŞ</button><button class="pJump" data-k="Space">ZIPLA</button><button class="pUse" data-k="KeyE">KULLAN</button></div>`;
+        mobileControls.innerHTML = `<div class="pJoy"><i></i></div><div class="pActions"><button class="pRun" data-k="ShiftLeft">KOŞ</button><button class="pCrouch" data-k="KeyC">ÇÖMEL</button><button class="pUse" data-k="KeyE">KULLAN</button></div>`;
         document.body.appendChild(mobileControls);
         const joy = mobileControls.querySelector(".pJoy"), knob = joy.querySelector("i");
         let joyId = null;
@@ -993,8 +1072,17 @@ function startPrison(net) {
         on(joy, "pointerup", (e) => { if (e.pointerId === joyId) { joyId = null; clearJoy(); } });
         on(joy, "pointercancel", clearJoy);
         mobileControls.querySelectorAll("button[data-k]").forEach((button) => {
-            const down = (e) => { e.preventDefault(); keysDown[button.dataset.k] = true; };
-            const up = (e) => { e.preventDefault(); keysDown[button.dataset.k] = false; };
+            const down = (e) => {
+                e.preventDefault();
+                const code = button.dataset.k;
+                if (code === "KeyC") {
+                    me.crouch = !me.crouch;
+                    pToast(me.crouch ? "Çömelindi: Sessiz ve gizli mod aktif" : "Ayağa kalkıldı");
+                } else {
+                    keysDown[code] = true;
+                }
+            };
+            const up = (e) => { e.preventDefault(); if (button.dataset.k !== "KeyC") keysDown[button.dataset.k] = false; };
             on(button, "pointerdown", down); on(button, "pointerup", up); on(button, "pointercancel", up); on(button, "pointerleave", up);
         });
     }
@@ -1002,9 +1090,10 @@ function startPrison(net) {
     let toastTimer = 0;
     function pToast(msg) {
         const el = $("pToast");
+        if (!el) return;
         el.textContent = msg; el.style.display = "block";
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { el.style.display = "none"; }, 2600);
+        toastTimer = setTimeout(() => { if (el) el.style.display = "none"; }, 2800);
     }
 
     const pick = { t: 0 };
@@ -1045,18 +1134,80 @@ function startPrison(net) {
         if (keysDown.KeyA || keysDown.ArrowLeft) ax -= 1;
         if (keysDown.KeyD || keysDown.ArrowRight) ax += 1;
         const moving = (ax || ay) && !me.picking;
+
         if (me.tired && me.stamina > 25) me.tired = false;
-        me.sprint = !!(moving && (keysDown.ShiftLeft || keysDown.ShiftRight) && !me.tired && me.stamina > 0);
+        me.sprint = !!(moving && (keysDown.ShiftLeft || keysDown.ShiftRight) && !me.crouch && !me.tired && me.stamina > 0);
         if (me.sprint) {
             me.stamina -= 32 * dt;
             if (me.stamina <= 0) { me.stamina = 0; me.tired = true; me.sprint = false; }
         } else me.stamina = Math.min(100, me.stamina + (moving ? 14 : 24) * dt);
-        me.noisy = me.sprint || me.picking;
+
+        me.noisy = (me.sprint || me.picking) && !me.crouch;
+
         if (moving) {
-            const len = Math.hypot(ax, ay), sp = me.sprint ? RUN : WALK;
+            const len = Math.hypot(ax, ay);
+            const targetRot = Math.atan2(ax, ay);
+            me.rot += clamp(angDiff(targetRot, me.rot), -10 * dt, 10 * dt);
+
+            const sp = me.crouch ? CROUCH : (me.sprint ? RUN : WALK);
             const dx = ax / len * sp * dt, dy = ay / len * sp * dt;
             if (!collides(me.x + dx, me.y, R)) me.x += dx;
             if (!collides(me.x, me.y + dy, R)) me.y += dy;
+            me.animTime += dt * (sp / WALK) * 8;
+        }
+        checkCheckpoints();
+        checkBranchTriggers();
+    }
+
+    function checkCheckpoints() {
+        const tx = Math.floor(me.x / T), ty = Math.floor(me.y / T);
+        if (currentCp === 0 && tx >= 5 && ty >= 6) {
+            setCheckpoint(1);
+        } else if (currentCp === 1 && tx >= 18 && ty >= 12) {
+            setCheckpoint(2);
+        } else if (currentCp === 2 && tx >= 30 && ty >= 17) {
+            setCheckpoint(3);
+        }
+    }
+    function setCheckpoint(idx) {
+        if (idx <= currentCp) return;
+        currentCp = idx;
+        const cp = CHECKPOINTS[idx];
+        const el = $("pCheckpoint");
+        if (el) el.textContent = "📍 " + cp.name;
+        pToast("KONTROL NOKTASI KAYDEDİLDİ: " + cp.name + " 📍");
+        tone(780, 0.2, "sine", 0.15);
+    }
+
+    function resetToCheckpoint() {
+        totalCaught++;
+        $("pCaught").textContent = "🚨 " + totalCaught;
+        const cp = CHECKPOINTS[currentCp];
+        me.x = cp.x * T + T / 2;
+        me.y = cp.y * T + T / 2;
+        me.safeUntil = performance.now() + 3000;
+        me.stamina = 100; me.tired = false;
+
+        const vig = $("pRedVignette");
+        if (vig) {
+            vig.style.opacity = "1";
+            setTimeout(() => { if (vig) vig.style.opacity = "0"; }, 800);
+        }
+        for (const gd of guards) {
+            gd.state = 0; gd.suspicion = 0; gd.path = []; gd.pathKey = "";
+        }
+        pToast("FARK EDİLDİNİZ! " + cp.name + " bölgesine dönüldü!");
+        tone(110, 0.5, "sawtooth", 0.25, 40);
+        net.send({ k: "checkpoint_reset", cp: currentCp });
+    }
+
+    function checkCaught(now) {
+        if (me.escaped || now < me.safeUntil) return;
+        for (const gd of guards) {
+            if (gd.state === 1 && gd.suspicion >= 100 && Math.hypot(gd.x - me.x, gd.y - me.y) < 22) {
+                resetToCheckpoint();
+                break;
+            }
         }
     }
 
@@ -1072,7 +1223,7 @@ function startPrison(net) {
     function checkKeyPickup() {
         if (me.escaped) return;
         for (const k of keys) {
-            if (!k.got && Math.hypot(me.x - (k.x * T + T / 2), me.y - (k.y * T + T / 2)) < 18) {
+            if (!k.got && Math.hypot(me.x - (k.x * T + T / 2), me.y - (k.y * T + T / 2)) < 20) {
                 takeKey(k.id, myId);
                 net.send({ k: "key", id: k.id });
             }
@@ -1099,313 +1250,574 @@ function startPrison(net) {
             finish(t, totalCaught);
         }
     }
-    function finish(t, c) {
+    function finish(t, c, plan) {
         if (ended) return;
         ended = true; endTime = t * 1000;
         tone(523, 0.3, "triangle", 0.15); setTimeout(() => tone(784, 0.5, "triangle", 0.15), 250);
-        showEnd(net, "KAÇTINIZ! 🎉", `Hepiniz hapishaneden kurtuldunuz.<br>Süre: <b>${fmtTime(t)}</b> • Yakalanma: <b>${c}</b>`, "#22c55e");
-    }
-    function calmGuards() {
-        for (const gd of guards) { if (gd.state !== 0) { gd.state = 0; gd.path = []; gd.pathKey = ""; } }
-    }
-    function resetToCheckpoint() {
-        totalCaught++;
-        me.x = mySpawn.x * T + T / 2; me.y = mySpawn.y * T + T / 2;
-        me.safeUntil = performance.now() + 2000; me.stamina = 100; me.tired = false;
-        camX = me.x; camY = me.y;
-        for (const gd of guards) { gd.state = 0; gd.suspicion = 0; gd.path = []; }
-        net.send({ k: "checkpoint_reset" });
-        pToast("FARK EDİLDİNİZ! Bölüm başa sarıldı — sessiz ilerleyin!");
-        tone(120, 0.4, "sawtooth", 0.2, 40);
+        showEnd(net, "KAÇTINIZ! 🎉", `Hapishaneden başarıyla firar ettiniz.<br>Seçilen Rota: <b>Plan ${plan || "A"}</b> • Süre: <b>${fmtTime(t)}</b>`, "#22c55e");
     }
 
-    function checkCaught(now) {
-        if (me.escaped || now < me.safeUntil) return;
-        for (const gd of guards) {
-            // Tamamen kırmızı üçgen olup seni kovalarken temas ederse görevi baştan başlat
-            if (gd.state === 1 && gd.suspicion >= 100 && Math.hypot(gd.x - me.x, gd.y - me.y) < 18) {
-                resetToCheckpoint();
-                break;
+    // ===================================================================
+    //  A WAY OUT CO-OP KARAR HALKASI (DİNAMİK SEÇİM ÇARKI)
+    // ===================================================================
+    let activeCoopChoice = null;
+    const coopVotes = {};
+
+    function openCoopChoice(cfg) {
+        activeCoopChoice = cfg;
+        for (const id in coopVotes) delete coopVotes[id];
+        const modal = $("awoChoiceModal");
+        if (!modal) return;
+        $("awoLeftTitle").textContent = cfg.leftTitle;
+        $("awoLeftDesc").textContent = cfg.leftDesc;
+        $("awoRightTitle").textContent = cfg.rightTitle;
+        $("awoRightDesc").textContent = cfg.rightDesc;
+        $("awoOptLeft").style.borderColor = "#475569";
+        $("awoOptRight").style.borderColor = "#475569";
+        $("awoOptLeft").style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
+        $("awoOptRight").style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
+        modal.style.display = "flex";
+        updateChoiceWheelUI();
+        tone(440, 0.2, "triangle", 0.1, 660);
+    }
+
+    function voteCoopChoice(side, voterId) {
+        if (!activeCoopChoice) return;
+        coopVotes[voterId] = side;
+        updateChoiceWheelUI();
+        tone(side === "left" ? 520 : 620, 0.08, "sine", 0.08);
+
+        const ps = net.state().players;
+        const total = ps.length || 1;
+        let leftCount = 0, rightCount = 0;
+        for (const id in coopVotes) {
+            if (coopVotes[id] === "left") leftCount++;
+            else if (coopVotes[id] === "right") rightCount++;
+        }
+
+        if ((leftCount + rightCount >= total) || (total === 1 && (leftCount > 0 || rightCount > 0))) {
+            const winningSide = leftCount >= rightCount ? "left" : "right";
+            lockInCoopChoice(winningSide);
+        }
+    }
+
+    function lockInCoopChoice(winningSide) {
+        const modal = $("awoChoiceModal");
+        const optEl = winningSide === "left" ? $("awoOptLeft") : $("awoOptRight");
+        if (optEl) {
+            optEl.style.borderColor = "#facc15";
+            optEl.style.boxShadow = "0 0 35px rgba(250,204,21,0.85)";
+        }
+        tone(880, 0.35, "triangle", 0.2);
+        const title = (winningSide === "left" ? activeCoopChoice.leftTitle : activeCoopChoice.rightTitle);
+        pToast("EKİP KARARI ONAYLANDI: " + title);
+
+        const cfg = activeCoopChoice;
+        setTimeout(() => {
+            if (modal) modal.style.display = "none";
+            activeCoopChoice = null;
+            if (winningSide === "left" && cfg.onLeft) cfg.onLeft();
+            if (winningSide === "right" && cfg.onRight) cfg.onRight();
+        }, 900);
+    }
+
+    function updateChoiceWheelUI() {
+        const dotsContainer = $("awoPlayerDots");
+        if (!dotsContainer) return;
+        dotsContainer.innerHTML = "";
+        const ps = net.state().players;
+        ps.forEach((p, idx) => {
+            const pCol = colorOf(p.id);
+            const vote = coopVotes[p.id];
+            const dot = document.createElement("div");
+            dot.style.position = "absolute";
+            dot.style.width = "14px";
+            dot.style.height = "14px";
+            dot.style.borderRadius = "50%";
+            dot.style.background = pCol;
+            dot.style.boxShadow = "0 0 10px " + pCol;
+            dot.style.top = "50%";
+            dot.style.transform = "translate(-50%, -50%)";
+            dot.style.transition = "left 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)";
+            if (vote === "left") {
+                dot.style.left = "16px";
+            } else if (vote === "right") {
+                dot.style.left = "66px";
+            } else {
+                dot.style.left = (41 + (idx - (ps.length - 1) / 2) * 12) + "px";
             }
+            dotsContainer.appendChild(dot);
+        });
+    }
+
+    // Seçim Kartı Tıklama / Dokunma
+    $("awoOptLeft").onclick = () => { voteCoopChoice("left", myId); net.send({ k: "awo_vote", s: "left" }); };
+    $("awoOptRight").onclick = () => { voteCoopChoice("right", myId); net.send({ k: "awo_vote", s: "right" }); };
+
+    // HAREKETE GÖRE TETİKLENEN KARAR NOKTALARI (Branch Points)
+    const branchTriggered = { b1: false, b2: false, b3: false };
+    function checkBranchTriggers() {
+        if (activeCoopChoice) return;
+        const tx = Math.floor(me.x / T), ty = Math.floor(me.y / T);
+
+        // Branch 1: Koridor Ayrımı & Havalandırma Girişi
+        if (!branchTriggered.b1 && tx >= 5 && tx <= 9 && ty >= 6 && ty <= 8) {
+            branchTriggered.b1 = true;
+            net.send({ k: "branch_open", b: 1 });
+            triggerBranch1();
+        }
+        // Branch 2: Güvenlik Şalteri ve Jeneratör Merkezi
+        else if (!branchTriggered.b2 && tx >= 19 && tx <= 23 && ty >= 12 && ty <= 15) {
+            branchTriggered.b2 = true;
+            net.send({ k: "branch_open", b: 2 });
+            triggerBranch2();
+        }
+        // Branch 3: Çıkış Kapısı
+        else if (!branchTriggered.b3 && keysGot >= KEYS_NEEDED && tx >= 32 && ty >= 19) {
+            branchTriggered.b3 = true;
+            net.send({ k: "branch_open", b: 3 });
+            triggerBranch3();
         }
     }
 
-    let camX = me.x, camY = me.y;
+    function triggerBranch1() {
+        openCoopChoice({
+            leftTitle: "HAVALANDIRMA TÜNELİ",
+            leftDesc: "Izgarayı sessizce kesip tavan arasındaki bakım tüneline sızın.",
+            rightTitle: "ÇAMAŞIRHANE BUHARI",
+            rightDesc: "Buhar vanasını patlatıp koridoru sıcak sisle doldurarak gardiyanları kör edin.",
+            onLeft: () => {
+                pToast("Havalandırma ızgarası açıldı! Sessiz geçiş devrede.");
+            },
+            onRight: () => {
+                steamActive = true;
+                pToast("BUHAR VANASI PATLADI! Yoğun sis gardiyanların görüşünü kapattı!");
+                noiseBurst(0.8, 0.25, 1200);
+                if (p3dScene) p3dScene.fog.density = 0.045;
+            }
+        });
+    }
 
-    const miniBase = document.createElement("canvas");
-    miniBase.width = MW * 4; miniBase.height = MH * 4;
-    {
-        const c = miniBase.getContext("2d");
-        c.fillStyle = "#020617"; c.fillRect(0, 0, miniBase.width, miniBase.height);
-        for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-            const i = y * MW + x;
-            c.fillStyle = solid[i] ? "#334155" : exitZone[i] ? "#166534" : "#111a2e";
-            c.fillRect(x * 4, y * 4, 4, 4);
-        }
+    function triggerBranch2() {
+        openCoopChoice({
+            leftTitle: "ŞALTERİ İNDİR (KARARTMA)",
+            leftDesc: "Ana güç trafosunu sabote edip tüm koridor ışıklarını söndürün.",
+            rightTitle: "YANGIN ALARMI",
+            rightDesc: "Yangın sirenini çalarak tüm gardiyanların dikkatini avluya çekin.",
+            onLeft: () => {
+                blackoutActive = true;
+                pToast("ELEKTRİKLER KESİLDİ! Acil durum yeşil ışıkları aktif.");
+                if (ambLight) ambLight.intensity = 0.15;
+                tone(140, 0.5, "sine", 0.2);
+            },
+            onRight: () => {
+                pToast("YANGIN ALARMI ÇALIYOR! Gardiyanlar panikle avluya koşuyor!");
+                guards.forEach(gd => { gd.tx = 36 * T; gd.ty = 3 * T; gd.state = 2; });
+                tone(680, 0.6, "sawtooth", 0.2, 380);
+            }
+        });
+    }
+
+    function triggerBranch3() {
+        openCoopChoice({
+            leftTitle: "PLAN A: ATÖLYE & TÜNEL",
+            leftDesc: "Bakım bacasından sessizce sızıp garaja gizlice ulaşma.",
+            rightTitle: "PLAN C: AVLUDA İSYAN & KAOS",
+            rightDesc: "Avlu kapısını kırarak gardiyanları dağıtıp kaçış aracına hücum.",
+            onLeft: () => {
+                pToast("PLAN A SEÇİLDİ: Atölye bacasından tahliye başlatılıyor!");
+                finish((performance.now() - t0) / 1000, totalCaught, "A");
+            },
+            onRight: () => {
+                pToast("PLAN C SEÇİLDİ: Avluda isyan patladı, kaçış aracına!");
+                finish((performance.now() - t0) / 1000, totalCaught, "C");
+            }
+        });
     }
 
     // ===================================================================
-    //  THREE.JS %100 GERÇEK 3D HAPİSHANE GÖRSELLEŞTİRME KATMANI
-    //  3. Şahıs (A Way Out) Kamerası, 3D Hücreler, Duvarlar ve Gardiyanlar
+    //  THREE.JS %100 GERÇEK 3D WEBGL ENGINE & ATMOSFER
     // ===================================================================
-    let p3dRenderer = null, p3dScene = null, p3dCamera = null;
-    let p3dPlayerMesh = null;
-    const p3dOtherMeshes = {};
-    const p3dGuardMeshes = [];
-    const p3dDoorMeshes = [];
-    const p3dKeyMeshes = [];
+    let p3dRenderer = null, p3dScene = null, p3dCamera = null, ambLight = null;
+    let p3dPlayerObj = null;
+    const p3dOtherObjs = {};
+    const p3dGuardObjs = [];
+    const p3dDoorObjs = [];
+    const p3dPlateObjs = [];
+    const p3dKeyObjs = [];
+
+    // Yardımcı: 3D Karakter Oluşturucu
+    function create3DCharacter(colorHex, isGuard) {
+        const group = new THREE.Group();
+        const torsoMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: isGuard ? 0.4 : 0.6, metalness: isGuard ? 0.2 : 0.05 });
+        const torsoGeo = new THREE.BoxGeometry(0.7, 0.9, 0.42);
+        const torso = new THREE.Mesh(torsoGeo, torsoMat);
+        torso.position.y = 1.15; torso.castShadow = true;
+        group.add(torso);
+
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xfbcfe8, roughness: 0.6 });
+        const headGeo = new THREE.SphereGeometry(0.26, 12, 10);
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 1.82; head.castShadow = true;
+        group.add(head);
+
+        if (isGuard) {
+            const capMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
+            const capGeo = new THREE.CylinderGeometry(0.34, 0.3, 0.14, 12);
+            const cap = new THREE.Mesh(capGeo, capMat);
+            cap.position.y = 2.02; group.add(cap);
+
+            const flMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 });
+            const flGeo = new THREE.CylinderGeometry(0.06, 0.1, 0.35, 8);
+            flGeo.rotateX(Math.PI / 2);
+            const fl = new THREE.Mesh(flGeo, flMat);
+            fl.position.set(0.42, 1.1, 0.35); group.add(fl);
+        }
+
+        const legMat = new THREE.MeshStandardMaterial({ color: isGuard ? 0x0f172a : colorHex, roughness: 0.7 });
+        const legGeo = new THREE.BoxGeometry(0.24, 0.8, 0.24);
+        legGeo.translate(0, -0.4, 0);
+
+        const leftLeg = new THREE.Mesh(legGeo, legMat);
+        leftLeg.position.set(-0.18, 0.8, 0); leftLeg.castShadow = true; group.add(leftLeg);
+
+        const rightLeg = new THREE.Mesh(legGeo, legMat);
+        rightLeg.position.set(0.18, 0.8, 0); rightLeg.castShadow = true; group.add(rightLeg);
+
+        const armMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.7 });
+        const armGeo = new THREE.BoxGeometry(0.18, 0.75, 0.18);
+        armGeo.translate(0, -0.35, 0);
+
+        const leftArm = new THREE.Mesh(armGeo, armMat);
+        leftArm.position.set(-0.46, 1.5, 0); leftArm.castShadow = true; group.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeo, armMat);
+        rightArm.position.set(0.46, 1.5, 0); rightArm.castShadow = true; group.add(rightArm);
+
+        return { group, torso, head, leftLeg, rightLeg, leftArm, rightArm };
+    }
+
+    // 3D Ters Üçgen Şüphe Göstergesi (A Way Out Tarzı)
+    function createTriangleMeterSprite() {
+        const can = document.createElement("canvas");
+        can.width = 128; can.height = 128;
+        const ctx = can.getContext("2d");
+        const tex = new THREE.CanvasTexture(can);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(1.4, 1.4, 1);
+        sprite.position.set(0, 2.7, 0);
+        return { sprite, can, ctx, tex };
+    }
+
+    function updateTriangleMeter(meter, suspicion, state, now) {
+        if (suspicion <= 0.5) { meter.sprite.visible = false; return; }
+        meter.sprite.visible = true;
+        const ctx = meter.ctx, w = 128, h = 128;
+        ctx.clearRect(0, 0, w, h);
+
+        const isAlert = state === 1 || suspicion >= 100;
+        const flash = isAlert && (Math.floor(now / 150) % 2 === 0);
+
+        ctx.beginPath();
+        ctx.moveTo(24, 28); ctx.lineTo(104, 28); ctx.lineTo(64, 108); ctx.closePath();
+        ctx.fillStyle = "rgba(15, 23, 42, 0.85)"; ctx.fill();
+
+        const fillPct = Math.min(1, Math.max(0, suspicion / 100));
+        const fillY = 108 - (108 - 28) * fillPct;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(24, 28); ctx.lineTo(104, 28); ctx.lineTo(64, 108); ctx.closePath();
+        ctx.clip();
+        ctx.fillStyle = isAlert ? (flash ? "#ef4444" : "#dc2626") : (suspicion > 30 ? "#facc15" : "#fef08a");
+        ctx.fillRect(0, fillY, w, 128 - fillY);
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.moveTo(24, 28); ctx.lineTo(104, 28); ctx.lineTo(64, 108); ctx.closePath();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = isAlert ? "#f87171" : "#fde047";
+        ctx.stroke();
+
+        if (isAlert) {
+            ctx.fillStyle = "#ffffff"; ctx.font = "bold 44px 'Segoe UI', sans-serif";
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("!", 64, 58);
+        }
+        meter.tex.needsUpdate = true;
+    }
 
     try {
-        p3dRenderer = new THREE.WebGLRenderer({ canvas: cvs, antialias: true });
+        p3dRenderer = new THREE.WebGLRenderer({ canvas: cvs, antialias: true, powerPreference: "high-performance" });
         p3dRenderer.setSize(window.innerWidth, window.innerHeight);
         p3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         p3dRenderer.shadowMap.enabled = true;
 
         p3dScene = new THREE.Scene();
-        p3dScene.background = new THREE.Color(0x060913);
-        p3dScene.fog = new THREE.FogExp2(0x060913, 0.015);
+        p3dScene.background = new THREE.Color(0x050811);
+        p3dScene.fog = new THREE.FogExp2(0x050811, 0.018);
 
-        p3dCamera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.2, 300);
+        p3dCamera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.2, 280);
 
-        // Ortam Işıkları
-        const ambLight = new THREE.AmbientLight(0x334155, 0.7);
+        ambLight = new THREE.AmbientLight(0x334155, 0.8);
         p3dScene.add(ambLight);
 
         // Zemin ve Tavan
         const floorGeo = new THREE.PlaneGeometry(MW * 3, MH * 3);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.85 });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set((MW * 3) / 2, 0, (MH * 3) / 2);
         floor.receiveShadow = true;
         p3dScene.add(floor);
 
-        // 3D Duvarlar
+        const ceilMat = new THREE.MeshStandardMaterial({ color: 0x0b1120, roughness: 0.9 });
+        const ceil = new THREE.Mesh(floorGeo, ceilMat);
+        ceil.rotation.x = Math.PI / 2;
+        ceil.position.set((MW * 3) / 2, 4.2, (MH * 3) / 2);
+        p3dScene.add(ceil);
+
+        // 3D Duvarlar ve Demir Parmaklıklar
         const wallGeo = new THREE.BoxGeometry(3, 4.2, 3);
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.2 });
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65, metalness: 0.2 });
+
+        const barGeo = new THREE.CylinderGeometry(0.045, 0.045, 4.2, 8);
+        const barMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.85, roughness: 0.3 });
+
         for (let y = 0; y < MH; y++) {
             for (let x = 0; x < MW; x++) {
-                if (solid[y * MW + x]) {
-                    const w = new THREE.Mesh(wallGeo, wallMat);
-                    w.position.set(x * 3 + 1.5, 2.1, y * 3 + 1.5);
-                    w.castShadow = true;
-                    w.receiveShadow = true;
-                    p3dScene.add(w);
+                const i = y * MW + x;
+                if (solid[i]) {
+                    if (cellBars[i]) {
+                        // 3D Demir Parmaklık Kafesi
+                        const barGrp = new THREE.Group();
+                        barGrp.position.set(x * 3 + 1.5, 2.1, y * 3 + 1.5);
+                        for (let k = -1.2; k <= 1.2; k += 0.4) {
+                            const b = new THREE.Mesh(barGeo, barMat);
+                            b.position.x = k; b.castShadow = true; barGrp.add(b);
+                        }
+                        p3dScene.add(barGrp);
+                    } else {
+                        const w = new THREE.Mesh(wallGeo, wallMat);
+                        w.position.set(x * 3 + 1.5, 2.1, y * 3 + 1.5);
+                        w.castShadow = true; w.receiveShadow = true;
+                        p3dScene.add(w);
+                    }
                 }
             }
         }
 
+        // Koridor Floresan Işıkları
+        for (let x = 6; x < MW - 6; x += 8) {
+            const lamp = new THREE.PointLight(0xe2e8f0, 0.85, 18, 2);
+            lamp.position.set(x * 3, 3.8, 6 * 3);
+            p3dScene.add(lamp);
+            const lamp2 = new THREE.PointLight(0xe2e8f0, 0.85, 18, 2);
+            lamp2.position.set(x * 3, 3.8, 14 * 3);
+            p3dScene.add(lamp2);
+        }
+
         // 3D Kapılar
-        const doorGeo = new THREE.BoxGeometry(2.8, 3.8, 0.4);
+        const cellDoorGeo = new THREE.BoxGeometry(2.6, 3.8, 0.15);
+        const cellDoorMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.4 });
+        const gateGeo = new THREE.BoxGeometry(2.8, 4.0, 0.3);
+        const gateMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, metalness: 0.6, roughness: 0.3 });
+
         doors.forEach(d => {
-            const dMat = new THREE.MeshStandardMaterial({ color: d.kind === "cell" ? 0x64748b : 0xef4444, metalness: 0.8 });
-            const dm = new THREE.Mesh(doorGeo, dMat);
+            const isCell = (d.kind === "cell");
+            const dm = new THREE.Mesh(isCell ? cellDoorGeo : gateGeo, isCell ? cellDoorMat : gateMat);
             dm.position.set(d.x * 3 + 1.5, 1.9, d.y * 3 + 1.5);
-            p3dScene.add(dm);
-            p3dDoorMeshes.push({ d, mesh: dm });
+            dm.castShadow = true; p3dScene.add(dm);
+            p3dDoorObjs.push({ d, mesh: dm, baseX: d.x * 3 + 1.5, baseY: 1.9 });
         });
 
-        // 3D Anahtarlar (Yerde parıldayan)
-        const keyGeo = new THREE.OctahedronGeometry(0.35);
-        const keyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 0.5 });
+        // 3D Basınç Plakaları
+        const plGeo = new THREE.BoxGeometry(2.2, 0.15, 2.2);
+        const plMat = new THREE.MeshStandardMaterial({ color: 0x7e22ce, emissive: 0xa855f7, emissiveIntensity: 0.3 });
+        plates.forEach(pl => {
+            const pm = new THREE.Mesh(plGeo, plMat);
+            pm.position.set(pl.x * 3 + 1.5, 0.08, pl.y * 3 + 1.5);
+            p3dScene.add(pm);
+            p3dPlateObjs.push({ pl, mesh: pm });
+        });
+
+        // 3D Anahtarlar
+        const keyGeo = new THREE.OctahedronGeometry(0.32);
+        const keyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 0.6 });
         keys.forEach(k => {
             const km = new THREE.Mesh(keyGeo, keyMat);
-            km.position.set(k.x * 3 + 1.5, 0.6, k.y * 3 + 1.5);
+            km.position.set(k.x * 3 + 1.5, 0.65, k.y * 3 + 1.5);
             p3dScene.add(km);
-            p3dKeyMeshes.push({ k, mesh: km });
+            p3dKeyObjs.push({ k, mesh: km });
         });
 
-        // 3D Oyuncu Karakteri (A Way Out tarzı tulumlu mahkûm)
-        const charGeo = new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.45, 1.2, 8, 16) : new THREE.CylinderGeometry(0.45, 0.45, 1.8, 12);
-        const charMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.5 }); // Turuncu Cezaevi Tulumu
-        p3dPlayerMesh = new THREE.Mesh(charGeo, charMat);
-        p3dPlayerMesh.position.set(me.x / T * 3, 1.1, me.y / T * 3);
-        p3dPlayerMesh.castShadow = true;
-        p3dScene.add(p3dPlayerMesh);
+        // 3D Oyuncu Modeli
+        p3dPlayerObj = create3DCharacter(colorOf(myId), false);
+        p3dPlayerObj.group.position.set(me.x / T * 3, 0, me.y / T * 3);
+        p3dScene.add(p3dPlayerObj.group);
 
-        // Karakterin üstüne tepe feneri / küçük ışık
-        const pLight = new THREE.PointLight(0xfef08a, 1.2, 12, 2);
-        pLight.position.set(0, 1.5, 0);
-        p3dPlayerMesh.add(pLight);
-
-        // 3D Gardiyanlar (Ellerinde gerçekçi 3D Projektör / Konik El Feneri)
+        // 3D Gardiyan Modelleri, Hacimsel Projektör Işıkları ve Üçgen Şüphe Göstergeleri
         guards.forEach(gd => {
-            const gGroup = new THREE.Group();
-            const gBodyMat = new THREE.MeshStandardMaterial({ color: 0x1e3a8a }); // Mavi Gardiyan Üniforması
-            const gBody = new THREE.Mesh(charGeo, gBodyMat);
-            gBody.position.y = 1.1;
-            gBody.castShadow = true;
-            gGroup.add(gBody);
+            const gObj = create3DCharacter(0x1e3a8a, true);
+            p3dScene.add(gObj.group);
 
-            // 3D Hacimsel Projektör / El Feneri Işığı
-            const spot = new THREE.SpotLight(0xfef08a, 2.5, 24, Math.PI / 5, 0.35);
-            spot.position.set(0, 1.2, 0.5);
+            // Gerçek 3D SpotLight
+            const spot = new THREE.SpotLight(0xfef08a, 2.8, 26, Math.PI / 5, 0.35);
+            spot.position.set(0, 1.2, 0.4);
             spot.target.position.set(0, 0.2, 10);
-            gGroup.add(spot);
-            gGroup.add(spot.target);
+            gObj.group.add(spot);
+            gObj.group.add(spot.target);
 
-            p3dScene.add(gGroup);
-            p3dGuardMeshes.push({ gd, group: gGroup, spot });
+            // Hacimsel Konik Işık Hüzmesi (Volumetric Cone)
+            const coneGeo = new THREE.ConeGeometry(3.2, 16, 16, 1, true);
+            coneGeo.translate(0, -8, 0);
+            coneGeo.rotateX(-Math.PI / 2);
+            const coneMat = new THREE.MeshBasicMaterial({
+                color: 0xfef08a,
+                transparent: true,
+                opacity: 0.18,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                side: THREE.DoubleSide
+            });
+            const cone = new THREE.Mesh(coneGeo, coneMat);
+            cone.position.set(0, 1.2, 0.4);
+            gObj.group.add(cone);
+
+            // 3D Üçgen Şüphe Göstergesi
+            const meter = createTriangleMeterSprite();
+            gObj.group.add(meter.sprite);
+
+            p3dGuardObjs.push({ gd, obj: gObj, spot, cone, coneMat, meter });
         });
+
     } catch (e) {
-        console.warn("3D WebGL başlatılamadı, 2D yedek devrede:", e);
+        console.error("Three.js 3D Sahne Başlatma Hatası:", e);
     }
 
     function render3DView(now, dt) {
         if (!p3dRenderer || !p3dScene) return;
 
-        // Oyuncu 3D Pozisyonu
+        // Oyuncu Pozisyonu ve Animasyonu
         const px = (me.x / T) * 3;
         const pz = (me.y / T) * 3;
-        p3dPlayerMesh.position.set(px, 1.1, pz);
+        p3dPlayerObj.group.position.set(px, 0, pz);
+        p3dPlayerObj.group.rotation.y = me.rot;
+
+        const pMoving = (keysDown.KeyW || keysDown.KeyS || keysDown.KeyA || keysDown.KeyD);
+        const pSpd = pMoving ? (me.sprint ? RUN : (me.crouch ? CROUCH : WALK)) : 0;
+        animateLimbSwings(p3dPlayerObj, pSpd, dt, me.crouch);
 
         // 3. Şahıs Omuz / Takip Kamerası (A Way Out Açısı)
-        const targetCamX = px;
-        const targetCamY = 5.2;
-        const targetCamZ = pz + 6.5;
-        p3dCamera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), Math.min(1, dt * 6));
-        p3dCamera.lookAt(px, 1.2, pz - 2);
+        const camDist = me.crouch ? 4.8 : 5.8;
+        const camHeight = me.crouch ? 3.4 : 4.4;
+        const targetCamX = px - Math.sin(me.rot) * camDist;
+        const targetCamZ = pz - Math.cos(me.rot) * camDist;
+
+        p3dCamera.position.x = THREE.MathUtils.lerp(p3dCamera.position.x, targetCamX, Math.min(1, dt * 7));
+        p3dCamera.position.y = THREE.MathUtils.lerp(p3dCamera.position.y, camHeight, Math.min(1, dt * 7));
+        p3dCamera.position.z = THREE.MathUtils.lerp(p3dCamera.position.z, targetCamZ, Math.min(1, dt * 7));
+        p3dCamera.lookAt(px, me.crouch ? 0.9 : 1.35, pz);
 
         // Diğer Oyuncular
         for (const id in others) {
             const o = others[id];
-            if (!p3dOtherMeshes[id]) {
-                const oMesh = new THREE.Mesh(p3dPlayerMesh.geometry, new THREE.MeshStandardMaterial({ color: colorOf(id) }));
-                p3dScene.add(oMesh);
-                p3dOtherMeshes[id] = oMesh;
+            if (!p3dOtherObjs[id]) {
+                const other = create3DCharacter(colorOf(id), false);
+                p3dScene.add(other.group);
+                p3dOtherObjs[id] = other;
             }
-            p3dOtherMeshes[id].position.set((o.x / T) * 3, 1.1, (o.y / T) * 3);
-            p3dOtherMeshes[id].visible = !o.escaped;
+            const oObj = p3dOtherObjs[id];
+            oObj.group.position.set((o.x / T) * 3, 0, (o.y / T) * 3);
+            oObj.group.rotation.y = o.rot || 0;
+            oObj.group.visible = !o.escaped;
+            animateLimbSwings(oObj, o.sprint ? RUN : WALK, dt, o.crouch);
         }
 
-        // Kapılar & Açılma Animasyonları
-        p3dDoorMeshes.forEach(item => {
-            if (item.d.open) {
-                item.mesh.position.y = THREE.MathUtils.lerp(item.mesh.position.y, 6.0, dt * 4); // Yukarı çekilir
+        // Kapılar & Basınç Plakaları
+        p3dDoorObjs.forEach(item => {
+            if (item.d.kind === "cell") {
+                item.mesh.position.x = item.baseX + item.d.slideOffset;
+            } else {
+                item.mesh.position.y = item.baseY + item.d.slideOffset;
             }
         });
+        p3dPlateObjs.forEach(item => {
+            item.mesh.position.y = 0.08 - item.pl.depress;
+        });
 
-        // Anahtarların Yerde Dönmesi
-        p3dKeyMeshes.forEach(item => {
+        // Anahtarlar
+        p3dKeyObjs.forEach(item => {
             if (item.k.got) {
                 item.mesh.visible = false;
             } else {
-                item.mesh.rotation.y += dt * 3;
-                item.mesh.position.y = 0.6 + Math.sin(now * 0.004) * 0.15;
+                item.mesh.rotation.y += dt * 3.2;
+                item.mesh.position.y = 0.65 + Math.sin(now * 0.005) * 0.15;
             }
         });
 
-        // 3D Gardiyan Devriyeleri ve Fener Renkleri
-        p3dGuardMeshes.forEach(item => {
+        // Gardiyanlar, Projektör Renkleri ve Üçgen Şüphe Göstergeleri
+        p3dGuardObjs.forEach(item => {
             const gx = (item.gd.x / T) * 3;
             const gz = (item.gd.y / T) * 3;
-            item.group.position.set(gx, 0, gz);
-            item.group.rotation.y = -item.gd.dir + Math.PI / 2;
+            item.obj.group.position.set(gx, 0, gz);
+            item.obj.group.rotation.y = -item.gd.dir + Math.PI / 2;
 
-            // Şüphe yükseldikçe fener rengi sarıdan kırmızıya döner
+            const isChasing = (item.gd.state === 1);
+            animateLimbSwings(item.obj, isChasing ? GUARD_CHASE : GUARD_PATROL, dt, false);
+
             if (item.gd.suspicion >= 100) {
-                item.spot.color.setHex(0xef4444);
-                item.spot.intensity = 4.0;
-            } else if (item.gd.suspicion > 30) {
-                item.spot.color.setHex(0xfacc15);
-                item.spot.intensity = 3.0;
+                item.spot.color.setHex(0xef4444); item.spot.intensity = 4.2;
+                item.coneMat.color.setHex(0xef4444); item.coneMat.opacity = 0.45;
+            } else if (item.gd.suspicion > 25) {
+                item.spot.color.setHex(0xfacc15); item.spot.intensity = 3.2;
+                item.coneMat.color.setHex(0xfacc15); item.coneMat.opacity = 0.32;
             } else {
-                item.spot.color.setHex(0xfef08a);
-                item.spot.intensity = 2.0;
+                item.spot.color.setHex(0xfef08a); item.spot.intensity = 2.4;
+                item.coneMat.color.setHex(0xfef08a); item.coneMat.opacity = 0.18;
             }
+            updateTriangleMeter(item.meter, item.gd.suspicion, item.gd.state, now);
         });
 
         p3dRenderer.render(p3dScene, p3dCamera);
     }
-    function drawPlayer(id, x, y, escaped, noisy, now, isMe) {
-        g.globalAlpha = escaped ? 0.35 : (isMe && now < me.safeUntil && Math.floor(now / 150) % 2 ? 0.4 : 1);
-        if (noisy && !escaped) {
-            g.strokeStyle = "rgba(255,255,255,0.28)"; g.lineWidth = 1.5;
-            g.beginPath(); g.arc(x, y, HEAR * (0.35 + 0.65 * ((now % 700) / 700)), 0, Math.PI * 2); g.stroke();
+
+    function animateLimbSwings(char, speed, dt, isCrouch) {
+        if (speed > 5) {
+            char.animTime = (char.animTime || 0) + dt * speed * 0.07;
+            const swing = Math.sin(char.animTime) * (isCrouch ? 0.35 : 0.6);
+            char.leftLeg.rotation.x = swing; char.rightLeg.rotation.x = -swing;
+            char.leftArm.rotation.x = -swing; char.rightArm.rotation.x = swing;
+        } else {
+            char.leftLeg.rotation.x = THREE.MathUtils.lerp(char.leftLeg.rotation.x, 0, dt * 8);
+            char.rightLeg.rotation.x = THREE.MathUtils.lerp(char.rightLeg.rotation.x, 0, dt * 8);
+            char.leftArm.rotation.x = THREE.MathUtils.lerp(char.leftArm.rotation.x, 0, dt * 8);
+            char.rightArm.rotation.x = THREE.MathUtils.lerp(char.rightArm.rotation.x, 0, dt * 8);
         }
-        g.fillStyle = colorOf(id);
-        g.beginPath(); g.arc(x, y, R + 1, 0, Math.PI * 2); g.fill();
-        g.strokeStyle = "#0f172a"; g.lineWidth = 2; g.stroke();
-        g.fillStyle = "#fff"; g.font = "bold 11px 'Segoe UI', sans-serif"; g.textAlign = "center";
-        g.fillText(names[id] || "?", x, y - R - 6);
-        g.globalAlpha = 1;
+        const targetScaleY = isCrouch ? 0.72 : 1.0;
+        char.group.scale.y = THREE.MathUtils.lerp(char.group.scale.y, targetScaleY, dt * 10);
     }
 
-    function draw(now, dt) {
-        const vw = cvs.width, vh = cvs.height;
-        const scale = clamp(vw / (24 * T), 0.6, 2.4);
-        let focus = me;
-        if (me.escaped) { for (const id in others) if (!others[id].escaped) { focus = others[id]; break; } }
-        camX += (focus.x - camX) * Math.min(1, dt * 8);
-        camY += (focus.y - camY) * Math.min(1, dt * 8);
-
-        g.setTransform(1, 0, 0, 1, 0, 0);
-        g.fillStyle = "#05070d"; g.fillRect(0, 0, vw, vh);
-        g.setTransform(scale, 0, 0, scale, Math.round(vw / 2 - camX * scale), Math.round(vh / 2 - camY * scale));
-
-        const x0 = Math.max(0, Math.floor((camX - vw / 2 / scale) / T)), x1 = Math.min(MW - 1, Math.ceil((camX + vw / 2 / scale) / T));
-        const y0 = Math.max(0, Math.floor((camY - vh / 2 / scale) / T)), y1 = Math.min(MH - 1, Math.ceil((camY + vh / 2 / scale) / T));
-        for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-            const i = ty * MW + tx, px = tx * T, py = ty * T;
-            if (solid[i]) {
-                g.fillStyle = "#2f374a"; g.fillRect(px, py, T, T);
-                g.fillStyle = "#3c465e"; g.fillRect(px, py, T, 4);
-                g.fillStyle = "#232a3a"; g.fillRect(px, py + T - 3, T, 3);
-            } else {
-                g.fillStyle = ((tx + ty) & 1) ? "#182033" : "#1b2438"; g.fillRect(px, py, T, T);
-                if (exitZone[i]) { g.fillStyle = "rgba(34,197,94,0.35)"; g.fillRect(px, py, T, T); }
-            }
-        }
-        for (const pl of plates) {
-            g.fillStyle = pl.pressed ? "#a855f7" : "#4c1d95"; g.fillRect(pl.x * T + 4, pl.y * T + 4, T - 8, T - 8);
-            g.strokeStyle = "#c084fc"; g.lineWidth = 2; g.strokeRect(pl.x * T + 4, pl.y * T + 4, T - 8, T - 8);
+    function drawMinimap() {
+        mg.fillStyle = "#020617"; mg.fillRect(0, 0, mini.width, mini.height);
+        for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
+            const i = y * MW + x;
+            mg.fillStyle = solid[i] ? "#334155" : exitZone[i] ? "#166534" : "#111a2e";
+            mg.fillRect(x * 4, y * 4, 4, 4);
         }
         for (const d of doors) {
-            const px = d.x * T, py = d.y * T;
-            if (d.kind === "cell") {
-                if (!d.open) {
-                    g.strokeStyle = "#9ca3af"; g.lineWidth = 2;
-                    for (let k = 4; k < T; k += 8) { g.beginPath(); g.moveTo(px + k, py); g.lineTo(px + k, py + T); g.stroke(); }
-                    g.fillStyle = "#6b7280"; g.fillRect(px, py + T / 2 - 1, T, 3);
-                } else { g.fillStyle = "#6b7280"; g.fillRect(px, py, 4, T); g.fillRect(px + T - 4, py, 4, T); }
-            } else if (d.kind === "plate") {
-                g.fillStyle = d.open ? "rgba(168,85,247,0.18)" : "#7e22ce"; g.fillRect(px, py, T, T);
-            } else {
-                g.fillStyle = d.open ? "rgba(34,197,94,0.25)" : "#b91c1c"; g.fillRect(px, py, T, T);
-            }
+            mg.fillStyle = d.open ? "#22c55e" : (d.kind === "cell" ? "#9ca3af" : d.kind === "plate" ? "#a855f7" : "#ef4444");
+            mg.fillRect(d.x * 4, d.y * 4, 4, 4);
         }
-        for (const k of keys) {
-            if (k.got) continue;
-            const kx = k.x * T + T / 2, ky = k.y * T + T / 2 + Math.sin(now / 300 + k.x) * 2;
-            g.shadowColor = "#facc15"; g.shadowBlur = 14;
-            g.fillStyle = "#facc15";
-            g.beginPath(); g.arc(kx, ky - 3, 6, 0, Math.PI * 2); g.fill();
-            g.fillRect(kx - 1.5, ky, 3, 9);
-            g.shadowBlur = 0;
-        }
-        for (const gd of guards) {
-            if (Math.abs(gd.x - camX) < vw / scale && Math.abs(gd.y - camY) < vh / scale) drawCone(gd);
-        }
-        for (const gd of guards) drawGuard(gd);
-
-        g.setTransform(1, 0, 0, 1, 0, 0);
-        const cx = vw / 2, cy = vh / 2;
-        const gr = g.createRadialGradient(cx, cy, 60 * scale, cx, cy, 300 * scale);
-        gr.addColorStop(0, "rgba(0,0,10,0)"); gr.addColorStop(1, "rgba(0,0,10,0.86)");
-        g.fillStyle = gr; g.fillRect(0, 0, vw, vh);
-
-        g.setTransform(scale, 0, 0, scale, Math.round(vw / 2 - camX * scale), Math.round(vh / 2 - camY * scale));
-        for (const id in others) { const o = others[id]; drawPlayer(id, o.x, o.y, o.escaped, o.sprint, now, false); }
-        drawPlayer(myId, me.x, me.y, me.escaped, me.noisy, now, true);
-        g.setTransform(1, 0, 0, 1, 0, 0);
-
-        mg.clearRect(0, 0, mini.width, mini.height);
-        mg.drawImage(miniBase, 0, 0);
-        for (const d of doors) { mg.fillStyle = d.open ? "#22c55e" : (d.kind === "cell" ? "#9ca3af" : d.kind === "plate" ? "#a855f7" : "#ef4444"); mg.fillRect(d.x * 4, d.y * 4, 4, 4); }
         for (const k of keys) if (!k.got) { mg.fillStyle = "#facc15"; mg.fillRect(k.x * 4 - 1, k.y * 4 - 1, 6, 6); }
         for (const id in others) { mg.fillStyle = colorOf(id); mg.fillRect(others[id].x / T * 4 - 2, others[id].y / T * 4 - 2, 5, 5); }
         mg.fillStyle = "#fff"; mg.fillRect(me.x / T * 4 - 3, me.y / T * 4 - 3, 7, 7);
         mg.fillStyle = colorOf(myId); mg.fillRect(me.x / T * 4 - 2, me.y / T * 4 - 2, 5, 5);
+        for (const gd of guards) {
+            mg.fillStyle = gd.state === 1 ? "#ef4444" : "#3b82f6";
+            mg.fillRect(gd.x / T * 4 - 2, gd.y / T * 4 - 2, 5, 5);
+        }
     }
 
     let hudTimer = 0;
@@ -1426,7 +1838,19 @@ function startPrison(net) {
         }
     }
 
-    // Yakınlık ses sistemi bu haritanın duvarlarını kullanır.
+    function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        cvs.width = Math.floor(window.innerWidth * dpr);
+        cvs.height = Math.floor(window.innerHeight * dpr);
+        if (p3dRenderer && p3dCamera) {
+            p3dRenderer.setSize(window.innerWidth, window.innerHeight);
+            p3dCamera.aspect = window.innerWidth / window.innerHeight;
+            p3dCamera.updateProjectionMatrix();
+        }
+    }
+    resize();
+    on(window, "resize", resize);
+
     window.pcVoiceMap = { solid, MW, MH, T };
     let last = performance.now(), lastSend = 0, lastGuardSend = 0;
     function frame(now) {
@@ -1435,7 +1859,7 @@ function startPrison(net) {
         const dt = Math.min(0.05, (now - last) / 1000); last = now;
         if (!ended) {
             window.pcVoiceLocal = { x: me.x / T, y: me.y / T };
-            updateDoors(now);
+            updateDoors(now, dt);
             updateInteract(dt);
             updateMe(dt);
             checkKeyPickup();
@@ -1448,7 +1872,7 @@ function startPrison(net) {
                 updateGuards(dt, now);
                 if (now - lastGuardSend > 66) {
                     lastGuardSend = now;
-                    net.send({ k: "g", g: guards.map((gd) => [Math.round(gd.x), Math.round(gd.y), Math.round(gd.dir * 100) / 100, gd.state]) });
+                    net.send({ k: "g", g: guards.map((gd) => [Math.round(gd.x), Math.round(gd.y), Math.round(gd.dir * 100) / 100, gd.state, Math.round(gd.suspicion)]) });
                 }
             } else {
                 for (const gd of guards) {
@@ -1460,20 +1884,16 @@ function startPrison(net) {
             checkCaught(now);
             if (now - lastSend > 66 && !me.escaped) {
                 lastSend = now;
-                net.send({ k: "p", x: Math.round(me.x), y: Math.round(me.y), s: me.noisy ? 1 : 0 });
+                net.send({ k: "p", x: Math.round(me.x), y: Math.round(me.y), rot: Math.round(me.rot * 100) / 100, s: me.noisy ? 1 : 0, c: me.crouch ? 1 : 0 });
             }
         }
-        // Three.js %100 Gerçek 3D Render
-        if (p3dRenderer) {
-            render3DView(now, dt);
-        } else {
-            draw(now, dt);
-        }
+        render3DView(now, dt);
+        drawMinimap();
         updateHud(dt);
     }
     raf = requestAnimationFrame(frame);
     updateKeysHud();
-    pToast("Hücrenin önüne git, E'ye basılı tutarak kilidi aç. 3 anahtarı bulun!");
+    pToast("A Way Out Tarzı 3D Kaçış Başladı! Hücrenin önüne git, E ile kilidi aç.");
 
     return {
         onRelay(from, d) {
@@ -1481,7 +1901,8 @@ function startPrison(net) {
             switch (d.k) {
                 case "p": {
                     const o = others[from]; if (!o) break;
-                    o.tx = d.x; o.ty = d.y; o.sprint = !!d.s;
+                    o.tx = d.x; o.ty = d.y; o.rot = d.rot || 0;
+                    o.sprint = !!d.s; o.crouch = !!d.c;
                     window.pcVoiceRemote = window.pcVoiceRemote || {};
                     window.pcVoiceRemote[from] = { x: d.x / T, y: d.y / T };
                     break;
@@ -1493,18 +1914,32 @@ function startPrison(net) {
                         gd.nx = a[0]; gd.ny = a[1]; gd.ndir = a[2];
                         if (a[3] === 1 && gd.state !== 1) onGuardAlert(gd);
                         gd.state = a[3];
+                        gd.suspicion = a[4] !== undefined ? a[4] : gd.suspicion;
                     });
                     break;
                 case "key": takeKey(d.id, from); break;
                 case "door": { const dr = doors.find((q) => q.id === d.id); if (dr) dr.open = true; break; }
+                case "checkpoint_reset": {
+                    currentCp = d.cp || 0;
+                    const cp = CHECKPOINTS[currentCp];
+                    me.x = cp.x * T + T / 2; me.y = cp.y * T + T / 2;
+                    me.safeUntil = now + 3000;
+                    pToast("YAKALANMA! " + cp.name + " noktasına dönüldü!");
+                    break;
+                }
+                case "branch_open": {
+                    if (d.b === 1) triggerBranch1();
+                    else if (d.b === 2) triggerBranch2();
+                    else if (d.b === 3) triggerBranch3();
+                    break;
+                }
+                case "awo_vote": {
+                    voteCoopChoice(d.s, from);
+                    break;
+                }
                 case "esc": {
                     const o = others[from];
                     if (o) { o.escaped = true; pToast(names[from] + " kaçtı! ✅"); checkWin(); }
-                    break;
-                }
-                case "caught": {
-                    const o = others[from];
-                    if (o) { o.safeUntil = now + 3000; totalCaught++; pToast(names[from] + " yakalandı!"); if (net.isHost()) calmGuards(); }
                     break;
                 }
                 case "win": finish(d.t, d.c); break;
@@ -1525,6 +1960,7 @@ function startPrison(net) {
             $("pToast").style.display = "none";
             $("pPrompt").style.display = "none";
             $("pProgress").style.display = "none";
+            $("awoChoiceModal").style.display = "none";
             if (mobileControls) mobileControls.remove();
         },
     };
@@ -2269,10 +2705,46 @@ async function handleSignal(msg) {
 // SON ÇIKIŞ KAMPANYA EKİ — yalnızca hapis oyunu JS başlangıcı
 // ===================================================================
 const PC_CHARS = [
-    { id: "aras", name: "Aras Kaya", role: "Mekanik", color: "#f97316", story: "Küçük kardeşi Efe'yi korumak için suçu üstlendi. On yıldır Efe'nin öldüğüne inanıyor; aslında Vural'ın elindeki sır bununla ilgili." },
-    { id: "derya", name: "Derya Akın", role: "Gazeteci", color: "#38bdf8", story: "Babası Vural'ın ilk kurbanlarından biriydi. Gerçeği ortaya çıkarmak için haberi değil, bütün hayatını kaybetmeyi göze aldı." },
-    { id: "mert", name: "Mert Uzun", role: "Sağlık görevlisi", color: "#4ade80", story: "Bir mahkûmu kurtarmak için emirleri çiğnedi. Ailesinin güvenliği için Vural'a borçlandı; ihanet gibi görünen şeyin altında korku var." },
-    { id: "sera", name: "Sera Demir", role: "Kurye", color: "#f472b6", story: "Kardeşini sokaktan almak için her işi yaptı. Onu korumak adına ekibe söylemediği bir anlaşma yaptı; en ağır sırrı o taşıyor." },
+    {
+        id: "aras",
+        name: "Aras 'Gölge' Kaya",
+        role: "Eski Askeri İstihbarat & Taktik Mekanik",
+        color: "#f97316",
+        record: "AĞIRLAŞTIRILMIŞ MÜEBBET · #AZ-9418",
+        crime: "Devlet İhaneti ve Cinayet Kumpası",
+        story: "Ordudaki general Vural'ın sınır ötesi uyuşturucu ve silah kartelini deşifre ettiği gece evi basıldı. Hamile eşi gözlerinin önünde katledilip cinayet silahı Aras'ın eline tutuşturuldu. 8 yıldır bu zindanın en derin hücresinde dişleriyle demirleri kemiriyor. Tek amacı: Dışarı çıkıp Vural'ı kendi elleriyle boğmak.",
+        tagline: "“Bu demir kapılar açıldığında adalet falan aramayacağım. İntikamımı alacağım.”"
+    },
+    {
+        id: "derya",
+        name: "Derya 'Bıçak' Akın",
+        role: "Eski Organize Suçlar Başkomiseri & Sızma Uzmanı",
+        color: "#38bdf8",
+        record: "ÖMÜR BOYU HAPİS · #AZ-4102",
+        crime: "Örgüt Yöneticiliği İftirası",
+        story: "Kartelin emniyet içindeki köstebeklerini kelepçeleyeceği operasyon gecesi pusuya düşürüldü; dört tim arkadaşı kollarında can verdi. Kartelin savcısı rozetini söküp onu suç örgütü lideri ilan etti. Cezaevinin mimari planlarını, gardiyan nöbet çizelgelerini ve tüm kör noktalarını ezbere biliyor.",
+        tagline: "“Rozetimi söktüklerinde polisliğim bitmedi... Sadece kurallar değişti.”"
+    },
+    {
+        id: "mert",
+        name: "Mert 'Kilit' Uzun",
+        role: "Usta Kasa Hırsızı & Tünel Mimarı",
+        color: "#4ade80",
+        record: "45 YIL AĞIR CEZA · #AZ-7731",
+        crime: "Nitelikli Soygun ve Sabotaj",
+        story: "Kartelin İsviçre'deki 80 milyon dolarlık kara para merkezini tek bir maymuncukla açtıktan sonra en güvendiği ortağı tarafından satıldı. Bu cezaevi 1968 yılında inşa edilirken yeraltı buhar ve tahliye kanallarını dedesi projelendirmişti. Parmakları en karmaşık kilitleri 5 saniyede açar.",
+        tagline: "“Dedemin inşa ettiği bu tüneller benim evim sayılır. Labirentin çıkışını sadece ben biliyorum.”"
+    },
+    {
+        id: "sera",
+        name: "Sera 'Akrep' Demir",
+        role: "Yeraltı Siber Korsan & Sabotaj Dâhisi",
+        color: "#f472b6",
+        record: "AĞIR GÖZETİM HÜCRESİ · #AZ-5529",
+        crime: "Siber Terör ve Kartel Sabotajı",
+        story: "Kartelin tüm offshore hesaplarını, para akışını ve siyasi rüşvet arşivini şifreli bir flash diske kopyaladı. Kardeşini rehin alıp onu bu hücreye gömdüler. Cezaevinin jeneratörünü, manyetik kapılarını ve kameralarını tek bir kabloyla manipüle edebilecek tek dahi.",
+        tagline: "“Işıklar söndüğünde koşmaya başlayın. İkinci bir şansımız olmayacak.”"
+    }
 ];
 let pcChar = null, pcNet = null, pcLayer = null;
 const pcOriginalStartPrison = startPrison;
@@ -2285,12 +2757,36 @@ function pcSaved() { try { return JSON.parse(localStorage.getItem("sonCikisCampa
 function pcCss() {
     if ($("pcCampaignCss")) return;
     const s = document.createElement("style"); s.id = "pcCampaignCss";
-    s.textContent = "#pcCampaign{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(2,6,13,.96);color:#f8fafc;padding:20px}.pcBox{width:min(920px,94vw);max-height:92vh;overflow:auto;background:linear-gradient(135deg,#111c29,#071018);border:1px solid #43586b;padding:clamp(22px,4vw,46px);box-shadow:0 25px 80px #000}.pcK{color:#facc15;font-size:12px;font-weight:bold;letter-spacing:3px}.pcT{font-size:clamp(34px,6vw,68px);line-height:1;margin:10px 0 22px;font-weight:900}.pcCast{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.pcChar{color:#dcecf1;text-align:left;border:1px solid #385161;background:#0b1520;padding:16px;cursor:pointer;min-height:180px}.pcChar:hover,.pcChar.sel{border-color:#facc15;background:#142534}.pcDot{display:block;width:18px;height:18px;border-radius:50%;margin-bottom:16px}.pcChar b{font-size:18px;display:block}.pcChar small{display:block;color:#facc15;margin:5px 0}.pcChar p{font-size:13px;color:#b3c6cf;margin:8px 0}.pcBtn{background:#facc15;color:#101820;border:0;padding:12px 20px;font-weight:bold;margin-top:20px;cursor:pointer}.pcBtn:disabled{opacity:.4;cursor:not-allowed}.pcScene{border-left:4px solid #facc15;padding:22px;background:#08121de8;max-width:690px}.pcScene b{color:#facc15;letter-spacing:1px}.pcScene p{font-size:20px;line-height:1.45}";
+    s.textContent = `
+        #pcCampaign { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(2,6,13,0.98); color: #f8fafc; padding: 16px; user-select: none; }
+        .pcBox { width: min(960px, 96vw); max-height: 94vh; overflow: auto; background: linear-gradient(135deg, #0e1726, #050a12); border: 1px solid #334155; padding: clamp(20px, 4vw, 42px); box-shadow: 0 30px 90px #000; position: relative; }
+        .pcK { color: #facc15; font-size: 12px; font-weight: bold; letter-spacing: 3px; }
+        .pcT { font-size: clamp(30px, 5.5vw, 60px); line-height: 1.1; margin: 8px 0 20px; font-weight: 900; letter-spacing: 0.5px; }
+        .pcCast { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+        .pcChar { color: #e2e8f0; text-align: left; border: 2px solid #334155; background: #0b1523; padding: 18px; cursor: pointer; min-height: 200px; border-radius: 12px; transition: all 0.25s; }
+        .pcChar:hover, .pcChar.sel { border-color: #facc15; background: #132338; box-shadow: 0 10px 30px rgba(250,204,21,0.25); transform: translateY(-3px); }
+        .pcDot { display: block; width: 18px; height: 18px; border-radius: 50%; margin-bottom: 14px; }
+        .pcChar b { font-size: 17px; display: block; color: #fff; }
+        .pcChar small { display: block; color: #facc15; margin: 4px 0 10px; font-weight: bold; font-size: 11px; }
+        .pcChar p { font-size: 12.5px; color: #94a3b8; line-height: 1.45; }
+        .pcBtn { background: #facc15; color: #020617; border: 0; padding: 14px 28px; font-weight: 900; font-size: 15px; margin-top: 24px; cursor: pointer; border-radius: 8px; letter-spacing: 1px; transition: 0.2s; }
+        .pcBtn:hover:not(:disabled) { background: #fde047; transform: scale(1.02); }
+        .pcBtn:disabled { opacity: .4; cursor: not-allowed; }
+        
+        /* SİNEMATİK VİDEO ANİMASYON KATMANI */
+        .cinematicWrapper { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #020617; border: 1px solid #1e293b; box-shadow: inset 0 0 40px #000; }
+        .cinematicLetterboxTop { position: absolute; top: 0; left: 0; right: 0; height: 38px; background: #000; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .cinematicLetterboxBottom { position: absolute; bottom: 0; left: 0; right: 0; height: 38px; background: #000; z-index: 10; border-top: 1px solid rgba(255,255,255,0.05); }
+        .cinematicScanlines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.25), rgba(0,0,0,0.25) 2px, transparent 2px, transparent 4px); pointer-events: none; z-index: 8; opacity: 0.7; }
+        .cinematicVignette { position: absolute; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.85) 100%); pointer-events: none; z-index: 9; }
+        .cinematicBody { position: relative; z-index: 11; padding: 48px clamp(16px, 4vw, 36px); }
+        .cinematicStamp { display: inline-block; padding: 4px 12px; border: 2px solid #ef4444; color: #ef4444; font-weight: 900; font-size: 12px; letter-spacing: 2px; transform: rotate(-2deg); margin-bottom: 14px; background: rgba(239,68,68,0.1); }
+        .cinematicTagline { font-size: clamp(16px, 2.5vw, 22px); font-style: italic; color: #facc15; line-height: 1.4; margin: 14px 0 20px; font-weight: 600; text-shadow: 0 0 12px rgba(250,204,21,0.4); }
+        .cinematicDossier { background: rgba(15,23,42,0.85); border-left: 4px solid #38bdf8; padding: 18px; border-radius: 6px; font-size: 14px; line-height: 1.6; color: #cbd5e1; margin-bottom: 20px; }
+    `;
     document.head.appendChild(s);
-    const mobile = document.createElement("style"); mobile.id = "pcMobileCss";
-    mobile.textContent = "#pMobileControls{position:fixed;z-index:50;inset:auto 16px 18px 16px;display:flex;align-items:end;justify-content:space-between;pointer-events:none}.pJoy{width:126px;height:126px;border:2px solid #89a5b1;background:#0b1820b8;border-radius:50%;pointer-events:auto;touch-action:none;position:relative;box-shadow:inset 0 0 18px #000}.pJoy i{position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:#91b9c6;border:2px solid #e5f7ff;transform:translate(-50%,-50%);pointer-events:none}.pActions{display:grid;grid-template-columns:repeat(2,76px);gap:9px;pointer-events:auto}.pActions button{height:62px;border:1px solid #89a5b1;background:#0b1820d9;color:#fff;border-radius:16px;font-size:12px;font-weight:bold;touch-action:none}.pActions .pUse{grid-column:1 / 3;height:72px;background:#263a41}.pActions .pJump{background:#34416c}.pActions .pRun{background:#4d3c25}@media (pointer:fine){#pMobileControls{display:none}}";
-    document.head.appendChild(mobile);
 }
+
 function pcShow(body) {
     pcCss(); if (!pcLayer) { pcLayer = document.createElement("div"); pcLayer.id = "pcCampaign"; document.body.appendChild(pcLayer); }
     pcLayer.innerHTML = `<div class="pcBox">${body}</div>`; pcLayer.style.display = "flex";
@@ -2299,27 +2795,57 @@ function pcHide() { if (pcLayer) pcLayer.style.display = "none"; }
 function pcPick(id) { pcChar = id; pcData({ character: id, chapter: 1 }); pcSelect(); }
 function pcSelect() {
     pcChar = pcChar || pcSaved().character || null;
-    const cards = PC_CHARS.map(c => `<button class="pcChar ${pcChar === c.id ? "sel" : ""}" onclick="pcPick('${c.id}')"><span class="pcDot" style="background:${c.color}"></span><b>${c.name}</b><small>${c.role}</small><p>${c.story}</p></button>`).join("");
-    pcShow(`<div class="pcK">SON ÇIKIŞ · 2–4 KİŞİLİK GERÇEKÇİ CO-OP KAÇIŞ</div><div class="pcT">KARAKTER VE GEÇMİŞİNİ SEÇ</div><p>Her oyuncu kendi karakterinin sinematik geçmişini izler ve rolünü belirler.</p><div class="pcCast">${cards}</div><button class="pcBtn" ${pcChar ? "" : "disabled"} onclick="pcCinematicIntro()">SİNEMATİK ANİMASYONU BAŞLAT</button>`);
+    const cards = PC_CHARS.map(c => `
+        <button class="pcChar ${pcChar === c.id ? "sel" : ""}" onclick="pcPick('${c.id}')">
+            <span class="pcDot" style="background:${c.color};box-shadow:0 0 10px ${c.color}"></span>
+            <b>${c.name}</b>
+            <small>${c.role.toUpperCase()}</small>
+            <p>${c.story.slice(0, 110)}…</p>
+        </button>
+    `).join("");
+    pcShow(`
+        <div class="pcK">SON ÇIKIŞ · 2–4 KİŞİLİK GERÇEKÇİ CO-OP KAÇIŞ</div>
+        <div class="pcT">KARAKTERİNİ VE GEÇMİŞİNİ SEÇ</div>
+        <p style="color:#94a3b8;font-size:14px;margin-bottom:18px;">Her oyuncu kendi karakterinin sinematik geçmişini inceler ve cezaevindeki rolünü üstlenir.</p>
+        <div class="pcCast">${cards}</div>
+        <button class="pcBtn" ${pcChar ? "" : "disabled"} onclick="pcCinematicIntro()">SİNEMATİK ANİMASYONU BAŞLAT ▶</button>
+    `);
 }
 
 function pcCinematicIntro() {
     const c = PC_CHARS.find(x => x.id === pcChar);
+    tone(60, 0.6, "sine", 0.35); // Derin sinematik kalp atışı
+    noiseBurst(0.4, 0.15, 1600); // Telsiz paraziti
+
     pcShow(`
-        <div class="pcK">SİNEMATİK GİRİŞ · GEÇMİŞİN AĞIRLIĞI</div>
-        <div class="pcScene" style="border-left:4px solid ${c.color}">
-            <b style="color:${c.color};font-size:24px;">${c.name.toUpperCase()} — ${c.role.toUpperCase()}</b>
-            <p style="margin-top:14px;font-style:italic;">“${c.story}”</p>
-            <div style="background:#020617;padding:16px;border-radius:8px;border:1px solid #334155;margin:16px 0;">
-                <p style="font-size:15px;color:#cbd5e1;line-height:1.6;">
-                    Demir kapıların kapanma sesi yankılanıyor. Yıllardır bu hücrede tek bir anı bekledin. Şimdi o an geldi. 
-                    Koridordaki gardiyanların adım seslerini dinle. Kaçış başladığında dönüş yok.
-                </p>
+        <div class="cinematicWrapper">
+            <div class="cinematicLetterboxTop"></div>
+            <div class="cinematicLetterboxBottom"></div>
+            <div class="cinematicScanlines"></div>
+            <div class="cinematicVignette"></div>
+
+            <div class="cinematicBody">
+                <div class="cinematicStamp">GİZLİ SİCİL DOSYASI · ${c.record}</div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c.color};box-shadow:0 0 12px ${c.color};"></span>
+                    <b style="color:${c.color};font-size:clamp(22px,4vw,32px);letter-spacing:1px;">${c.name.toUpperCase()}</b>
+                </div>
+                <div style="font-size:13px;color:#94a3b8;font-weight:700;margin:4px 0 12px;">ROL: ${c.role.toUpperCase()} • İTHAM: ${c.crime.toUpperCase()}</div>
+
+                <div class="cinematicTagline">${c.tagline}</div>
+
+                <div class="cinematicDossier">
+                    <p style="margin-bottom:10px;">${c.story}</p>
+                    <div style="font-size:12px;color:#facc15;font-weight:bold;margin-top:10px;">
+                        🚨 GÖREV HEDEFİ: Hücre parmaklıklarını sök, koridor devriyelerini atlat ve diğer mahkûmlarla buluş!
+                    </div>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                    <div style="font-size:12px;color:#64748b;">A Way Out Tarzı 3D Gerçek Zamanlı Co-op Firar</div>
+                    <button class="pcBtn" style="margin-top:0;" onclick="pcLaunch()">HÜCREDEN ÇIKIŞI BAŞLAT ⚡</button>
+                </div>
             </div>
-            <div style="font-size:13px;color:#facc15;font-weight:bold;margin-bottom:14px;">
-                KAÇIŞ STRATEJİSİ: İsyandan faydalanarak atölye havalandırmasına sızma.
-            </div>
-            <button class="pcBtn" onclick="pcLaunch()">HÜCREDEN ÇIKIŞI BAŞLAT</button>
         </div>
     `);
 }
