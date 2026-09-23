@@ -81,9 +81,12 @@ input:focus { outline: none; border-color: #38bdf8; }
 
 /* ---- FPS MOBİL KONTROLLER (çapraz platform) ---- */
 #fMobileControls { position: absolute; inset: 0; pointer-events: none; z-index: 40; display: none; }
-#fMobStick { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(130px + env(safe-area-inset-bottom)); width: 124px; height: 124px; border-radius: 50%; border: 2px solid rgba(148,163,184,0.5); background: rgba(15,23,42,0.45); pointer-events: auto; touch-action: none; }
+#fMobStick { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(130px + env(safe-area-inset-bottom)); width: var(--jw, 124px); height: var(--jw, 124px); border-radius: 50%; border: 2px solid rgba(148,163,184,0.5); background: rgba(15,23,42,0.45); pointer-events: auto; touch-action: none; }
 #fMobKnob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; border-radius: 50%; background: rgba(56,189,248,0.75); border: 2px solid #0ea5e9; transform: translate(-50%,-50%); pointer-events: none; }
-#fMobBtns { position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(110px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2, 66px); grid-auto-rows: 54px; gap: 10px; pointer-events: none; }
+#fMobBtns { position: absolute; right: calc(14px + env(safe-area-inset-right)); bottom: calc(110px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2, var(--fbw, 66px)); grid-auto-rows: var(--fbh, 54px); gap: 10px; pointer-events: none; }
+#fMobileControls { opacity: var(--fop, 1); }
+#fMobileControls.joyR #fMobStick { left: auto; right: calc(18px + env(safe-area-inset-right)); }
+#fMobileControls.joyR #fMobBtns { right: auto; left: calc(14px + env(safe-area-inset-left)); }
 #fMobBtns button { pointer-events: auto; border: 1px solid #475569; background: rgba(15,23,42,0.82); color: #fff; border-radius: 14px; font-size: 20px; font-weight: 900; touch-action: none; }
 #fMobBtns button:active { background: #38bdf8; color: #020617; }
 #fMobBtns button.on { background: #22c55e; color: #020617; }
@@ -143,12 +146,26 @@ input:focus { outline: none; border-color: #38bdf8; }
 
 /* FPS HUD */
 #fpsCanvas { image-rendering: pixelated; cursor: crosshair; }
-#xh { position: absolute; top: 50%; left: 50%; width: 0; height: 0; pointer-events: none; --gap: 6px; }
-#xh i { position: absolute; background: #4ade80; box-shadow: 0 0 2px #000; }
-#xh i:nth-child(1) { width: 2px; height: 8px; left: -1px; top: calc(-8px - var(--gap)); }
-#xh i:nth-child(2) { width: 2px; height: 8px; left: -1px; top: var(--gap); }
-#xh i:nth-child(3) { height: 2px; width: 8px; top: -1px; left: calc(-8px - var(--gap)); }
-#xh i:nth-child(4) { height: 2px; width: 8px; top: -1px; left: var(--gap); }
+#xh { position: absolute; top: 50%; left: 50%; width: 0; height: 0; pointer-events: none; --gap: 6px; z-index: 14; }
+#xh > div { position: absolute; background: var(--chc, #4ade80); opacity: var(--chop, 1); box-shadow: 0 0 2px rgba(0,0,0,0.9); }
+#xh .b-up { left: 0; top: calc(-1 * (var(--gap) + var(--chs, 8px))); width: var(--cht, 2px); height: var(--chs, 8px); transform: translateX(-50%); }
+#xh .b-dn { left: 0; top: var(--gap); width: var(--cht, 2px); height: var(--chs, 8px); transform: translateX(-50%); }
+#xh .b-lf { top: 0; left: calc(-1 * (var(--gap) + var(--chs, 8px))); height: var(--cht, 2px); width: var(--chs, 8px); transform: translateY(-50%); }
+#xh .b-rt { top: 0; left: var(--gap); height: var(--cht, 2px); width: var(--chs, 8px); transform: translateY(-50%); }
+#xh .b-dot { left: 0; top: 0; width: calc(var(--cht, 2px) * 1.8); height: calc(var(--cht, 2px) * 1.8); border-radius: 50%; transform: translate(-50%,-50%); }
+#xh .b-sq { left: 0; top: 0; width: calc(var(--gap) * 2 + var(--chs, 8px)); height: calc(var(--gap) * 2 + var(--chs, 8px)); border: var(--cht, 2px) solid var(--chc, #4ade80); background: transparent !important; transform: translate(-50%,-50%); }
+#fMenuBtn { position: absolute; top: 14px; left: 14px; z-index: 45; width: 42px; height: 42px; border-radius: 10px; background: rgba(15,23,42,0.8); border: 1px solid #475569; color: #e2e8f0; font-size: 20px; cursor: pointer; }
+#fMenuBtn:hover { border-color: #38bdf8; }
+#fpsPause { position: absolute; inset: 0; z-index: 99997; background: rgba(2,6,23,0.88); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#fpsPause .pbox { width: min(430px, 94vw); background: linear-gradient(135deg,#0f172a,#020617); border: 2px solid #334155; border-radius: 16px; padding: 26px; text-align: center; max-height: 92vh; overflow-y: auto; }
+.setRow { text-align: left; margin: 12px 0 2px; }
+.setRow label { font-size: 12px; font-weight: 800; color: #94a3b8; display: block; margin-bottom: 5px; letter-spacing: 0.5px; }
+.setRow input[type=range] { width: 100%; accent-color: #38bdf8; }
+.setRow input[type=color] { width: 60px; height: 30px; border: none; background: none; cursor: pointer; }
+.chOpts { display: flex; gap: 6px; flex-wrap: wrap; }
+.chOpts button { flex: 1; min-width: 62px; background: #0f172a; color: #cbd5e1; border: 1px solid #475569; border-radius: 8px; padding: 9px 4px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.chOpts button.on { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,0.12); }
+.sect { font-size: 13px; font-weight: 900; color: #38bdf8; text-align: left; margin-top: 16px; letter-spacing: 1px; border-top: 1px solid #334155; padding-top: 12px; }
 #fHit { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 26px; font-weight: 900; color: #fff; text-shadow: 0 0 4px #000; opacity: 0; pointer-events: none; transition: opacity 0.12s; }
 #fHit.head { color: #ef4444; }
 #fpsRadar { position: absolute; top: 14px; left: 14px; border: 1px solid #475569; border-radius: 6px; background: rgba(2,6,23,0.6); }
@@ -352,6 +369,7 @@ input:focus { outline: none; border-color: #38bdf8; }
 
     <button class="btn btn-create" style="margin-top:22px;" id="startBtn" disabled>Bir oyun seç</button>
     <button class="btn btn-ghost" id="leaveBtn">Odadan Ayrıl</button>
+    <button class="btn btn-ghost" id="fsBtn">⛶ Tam Ekran</button>
 </div>
 
 <!-- 3. OYUN EKRANI -->
@@ -401,12 +419,13 @@ input:focus { outline: none; border-color: #38bdf8; }
     <div class="hidden" id="fpsGame">
         <canvas id="fpsCanvas" class="full"></canvas>
         <div id="fDamage"></div>
-        <div id="xh"><i></i><i></i><i></i><i></i></div>
+        <div id="xh"></div>
         <div id="fHit">✕</div>
         <canvas id="fpsRadar" width="160" height="110"></canvas>
         <div id="fScore" class="pill"></div>
         <div id="fKillfeed"></div>
         <div id="fBanner"></div>
+        <button id="fMenuBtn" title="Menü (Esc)">☰</button>
         <div id="fMobileControls">
             <div id="fMobStick"><div id="fMobKnob"></div></div>
             <div id="fMobBtns">
@@ -502,6 +521,7 @@ input:focus { outline: none; border-color: #38bdf8; }
 // ===================================================================
 const WS_URL = "wss://oyun-sunucusu-cd47.onrender.com";
 const $ = (id) => document.getElementById(id);
+const IS_TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);
 
 let ws = null;
 let wsReady = false;
@@ -509,11 +529,24 @@ let myId = null;
 let roomState = null;
 let currentGame = null;
 
+// ---- F5 sonrası aynı odada kalma (auto-rejoin) ----
+function saveSession(sess) { try { localStorage.setItem("odaSession", JSON.stringify(sess)); } catch (e) {} }
+function loadSession() { try { return JSON.parse(localStorage.getItem("odaSession") || "null"); } catch (e) { return null; } }
+function clearSession() { try { localStorage.removeItem("odaSession"); } catch (e) {} }
+function tryRejoin() {
+    const s = loadSession();
+    if (!s || !s.code || !s.name) return false;
+    $("playerName").value = s.name;
+    wsSend({ action: "join", code: s.code, name: s.name, rejoin: true });
+    return true;
+}
+
 function connect() {
     ws = new WebSocket(WS_URL);
     ws.onopen = () => {
         wsReady = true;
         $("connBanner").classList.add("hidden");
+        if (!tryRejoin()) $("connBanner").classList.add("hidden");
     };
     ws.onclose = () => {
         wsReady = false;
@@ -570,10 +603,15 @@ function onWsMessage(event) {
         case "relay": if (currentGame) currentGame.onRelay(msg.from, msg.data); break;
         case "chat": appendChat(msg.from, msg.text, msg.team); break;
         case "signal": handleSignal(msg); break;
-        case "error": showError(msg.message); break;
+        case "error":
+            showError(msg.message);
+            // rejoin denemesi başarısızsa (oda kapandı vs.) oturumu temizle
+            if (msg.message && (msg.message.includes("bulunamadı") || msg.message.includes("dolu") || msg.message.includes("bekle"))) clearSession();
+            break;
         case "left":
             if (currentGame) { currentGame.destroy(); currentGame = null; }
             roomState = null;
+            clearSession();
             showScreen("menu");
             break;
     }
@@ -581,6 +619,11 @@ function onWsMessage(event) {
 
 function onRoomState(s) {
     roomState = s;
+    // oturum hatırlama: odadayken kod+isim kaydet, odadan çıkınca sil
+    const sess = loadSession();
+    if (s.code && sess && sess.code !== s.code) saveSession({ code: s.code, name: sess.name || (sess = null, $("playerName").value.trim()) });
+    if (s.code && !sess) { const nm = $("playerName").value.trim(); if (nm) saveSession({ code: s.code, name: nm }); }
+    if (!s.code) clearSession();
     if (s.phase === "playing") {
         if (!currentGame) enterGame(s);
         else currentGame.onRoomState(s);
@@ -607,7 +650,7 @@ function requireName() {
 $("createBtn").onclick = () => {
     $("errorBox").style.display = "none";
     const name = requireName();
-    if (name) wsSend({ action: "create", name });
+    if (name) { clearSession(); wsSend({ action: "create", name }); }
 };
 $("joinBtn").onclick = () => {
     $("errorBox").style.display = "none";
@@ -625,7 +668,37 @@ $("displayCode").onclick = () => {
     if (!roomState) return;
     try { navigator.clipboard.writeText(roomState.code); toast("Oda kodu kopyalandı"); } catch (e) {}
 };
-$("leaveBtn").onclick = () => wsSend({ action: "leave" });
+$("leaveBtn").onclick = () => { clearSession(); wsSend({ action: "leave" }); };
+
+// ---- TAM EKRAN (PC + Mobil, landscape kilidi) ----
+function toggleFullscreen() {
+    const doc = document, el = doc.documentElement;
+    const fsEl = doc.fullscreenElement || doc.webkitFullscreenElement;
+    if (!fsEl) {
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (req) {
+            const p = req.call(el);
+            if (p && p.catch) p.catch(() => {});
+        }
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock("landscape").catch(() => {});
+        }
+    } else {
+        const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+        if (exit) exit.call(doc);
+    }
+}
+window.fpsToggleFullscreen = toggleFullscreen;
+$("fsBtn").onclick = toggleFullscreen;
+
+// FPS oyununa girerken tam ekran teklifi (mobilde ilk dokunuşta sorulabilir)
+const _origEnterGame = enterGame;
+enterGame = function (s) {
+    _origEnterGame(s);
+    if (s.game === "fps" && IS_TOUCH && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+        toast("📱 Daha iyi oyun için menüden Tam Ekran'a bas");
+    }
+};
 $("switchTeamBtn").onclick = () => wsSend({ action: "switch_team" });
 $("startBtn").onclick = () => wsSend({ action: "start_game" });
 [["tsizePlus0", 0, 1], ["tsizeMinus0", 0, -1], ["tsizePlus1", 1, 1], ["tsizeMinus1", 1, -1]].forEach(([id, t, d]) => {
@@ -2476,44 +2549,80 @@ function startFps(net) {
         while (vmGun && vmGun.children.length) vmGun.remove(vmGun.children[0]);
         if (vmGun) vm.remove(vmGun);
         vmGun = new THREE.Group();
-        const mat = new THREE.MeshStandardMaterial({ color: 0x1d212b, roughness: 0.42, metalness: 0.65 });
-        const mat2 = new THREE.MeshStandardMaterial({ color: 0x2e3442, roughness: 0.5, metalness: 0.5 });
-        const wood = new THREE.MeshStandardMaterial({ color: 0x5a4128, roughness: 0.8 });
-        const L = w.len;
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.11, L * 0.62), mat);
-        body.position.z = -L * 0.31; vmGun.add(body);
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, L * 0.5, 8), mat2);
-        barrel.rotation.x = Math.PI / 2;
-        barrel.position.z = -L * 0.78; vmGun.add(barrel);
-        const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.09), mat2);
-        grip.position.set(0, -0.12, -L * 0.12); grip.rotation.x = 0.25; vmGun.add(grip);
-        if (w.name === "Tüfek" || w.name === "Hafı Makineli") {
-            const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.2), mat2);
-            stock.position.z = 0.1; vmGun.add(stock);
-            const mag2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.09), mat2);
-            mag2.position.set(0, -0.16, -L * 0.4); mag2.rotation.x = -0.2; vmGun.add(mag2);
+        const matBody = new THREE.MeshStandardMaterial({ color: 0x24272e, roughness: 0.38, metalness: 0.72 });
+        const matMetal = new THREE.MeshStandardMaterial({ color: 0x3a3f49, roughness: 0.3, metalness: 0.85 });
+        const matWood = new THREE.MeshStandardMaterial({ color: 0x6d4426, roughness: 0.75, metalness: 0.05 });
+        const matPoly = new THREE.MeshStandardMaterial({ color: 0x15181e, roughness: 0.6, metalness: 0.3 });
+        const matGreen = new THREE.MeshStandardMaterial({ color: 0x4a5240, roughness: 0.65, metalness: 0.2 });
+        const name = w.name;
+        const add = (geo, mat, x, y, z, rx, ry, rz) => {
+            const m = new THREE.Mesh(geo, mat);
+            m.position.set(x, y, z);
+            if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; if (rz) m.rotation.z = rz;
+            m.frustumCulled = false;
+            vmGun.add(m);
+            return m;
+        };
+        const B = (a,b,c) => new THREE.BoxGeometry(a, b, c);
+        const C = (r, h, s) => new THREE.CylinderGeometry(r, r, h, s || 10);
+
+        if (name === "Tüfek") {
+            // AK-47 tarzı: ahşap el kundağı + urganlı eğik şarjör + gaz tüpü
+            add(B(0.075, 0.1, 0.5), matBody, 0, 0, -0.2);                 // gövde
+            add(C(0.016, 0.42, 8), matMetal, 0, 0.005, -0.62, Math.PI/2); // namlu
+            add(C(0.024, 0.2, 8), matWood, 0, 0.005, -0.44, Math.PI/2);   // ahşap el kundağı
+            add(C(0.013, 0.22, 8), matMetal, 0, 0.045, -0.42, Math.PI/2); // gaz tüpü
+            add(B(0.05, 0.2, 0.1), matWood, 0, -0.13, -0.1, 0.3);         // kabza
+            add(B(0.055, 0.22, 0.07), matMetal, 0.0, -0.14, -0.3, -0.45); // eğik şarjör
+            add(B(0.06, 0.09, 0.24), matWood, 0, -0.02, 0.15);            // ahşap dipçik
+            add(B(0.02, 0.03, 0.03), matMetal, 0, 0.07, -0.75);           // arpacık
+            add(B(0.045, 0.035, 0.05), matMetal, 0, 0.065, -0.1);         // gez
+        } else if (name === "Keskin Nişancı") {
+            // AWP tarzı: yeşil gövde + büyük dürbün + kurma kolu + bipod
+            add(B(0.07, 0.11, 0.62), matGreen, 0, 0, -0.26);
+            add(C(0.015, 0.55, 8), matMetal, 0, 0.01, -0.82, Math.PI/2);  // uzun namlu
+            add(C(0.03, 0.07, 10), matMetal, 0, 0.01, -1.06, Math.PI/2);  // namlu ucu (muzzle brake)
+            add(B(0.06, 0.1, 0.26), matGreen, 0, -0.02, 0.18);            // dipçik
+            add(B(0.05, 0.18, 0.09), matPoly, 0, -0.13, -0.05, 0.25);     // kabza
+            const sc = add(C(0.042, 0.3, 12), matBody, 0, 0.115, -0.3, Math.PI/2); // dürbün
+            add(C(0.05, 0.04, 12), matBody, 0, 0.115, -0.44, Math.PI/2);  // objektif
+            add(C(0.045, 0.03, 12), matBody, 0, 0.115, -0.16, Math.PI/2); // oküler
+            add(B(0.014, 0.05, 0.02), matMetal, 0, 0.065, -0.22);         // dürbün ayakları
+            add(B(0.014, 0.05, 0.02), matMetal, 0, 0.065, -0.38);
+            const bolt = add(C(0.011, 0.09, 6), matMetal, 0.05, 0.02, -0.08, 0, 0, 0.9); // kurma kolu
+            add(B(0.03, 0.02, 0.14), matMetal, -0.05, -0.01, -0.7, 0, 0, 0.5); // bipod
+            add(B(0.03, 0.02, 0.14), matMetal, 0.05, -0.01, -0.7, 0, 0, -0.5);
+        } else if (name === "Hafı Makineli") {
+            // MP5 tarzı: kompakt gövde + ön kabza + kıvrık şarjör + nişangah
+            add(B(0.07, 0.1, 0.4), matBody, 0, 0, -0.16);
+            add(C(0.018, 0.24, 8), matMetal, 0, 0.005, -0.44, Math.PI/2); // namlu
+            add(C(0.026, 0.1, 8), matBody, 0, 0.005, -0.34, Math.PI/2);   // namlu somunu
+            add(B(0.045, 0.16, 0.08), matPoly, 0, -0.11, -0.08, 0.2);     // kabza
+            add(B(0.04, 0.18, 0.05), matMetal, 0, -0.12, -0.3, -0.12);    // kıvrık şarjör
+            add(B(0.05, 0.05, 0.16), matPoly, 0, -0.01, 0.12);            // katlanır dipçik
+            add(B(0.02, 0.05, 0.03), matMetal, 0, 0.07, -0.3);            // ön nişangah halkası
+            const ring = add(new THREE.TorusGeometry(0.022, 0.006, 6, 14), matMetal, 0, 0.07, -0.3); ring.rotation.x = 0;
+            add(B(0.04, 0.03, 0.04), matMetal, 0, 0.065, -0.02);          // arka nişangah
+        } else if (name === "Tabanca") {
+            // Deagle tarzı: büyük sürgü + geniş namlu + ön kabza tırnağı
+            add(B(0.085, 0.095, 0.34), matMetal, 0, 0.02, -0.14);         // sürgü
+            add(B(0.07, 0.08, 0.3), matBody, 0, -0.045, -0.12);           // gövde
+            add(C(0.02, 0.08, 8), matMetal, 0, 0.025, -0.33, Math.PI/2);  // namlu ucu
+            add(B(0.05, 0.17, 0.09), matPoly, 0, -0.13, -0.02, 0.28);     // kabza
+            add(B(0.03, 0.04, 0.03), matMetal, 0, 0.075, -0.28);          // arpacık
+            add(B(0.05, 0.035, 0.03), matMetal, 0, 0.072, 0.0);           // gez
+            const vent = add(B(0.06, 0.012, 0.2), matBody, 0, 0.075, -0.14); // sürgü havalandırması
+        } else {
+            // Pompalı: çift tüp + pompa kundağı + hedef nişangahı
+            add(B(0.075, 0.11, 0.42), matBody, 0, 0, -0.16);
+            add(C(0.021, 0.5, 8), matMetal, 0, 0.02, -0.58, Math.PI/2);   // üst namlu
+            add(C(0.019, 0.42, 8), matMetal, 0, -0.025, -0.52, Math.PI/2);// tüp şarjör
+            add(C(0.028, 0.16, 8), matWood, 0, -0.025, -0.48, Math.PI/2); // pompa kundağı
+            add(B(0.055, 0.2, 0.1), matWood, 0, -0.12, -0.05, 0.3);       // kabza
+            add(B(0.06, 0.1, 0.26), matWood, 0, -0.02, 0.16);             // dipçik
+            add(B(0.016, 0.035, 0.03), matMetal, 0, 0.06, -0.78);         // mini arpacık
         }
-        if (w.name === "Tabanca") {
-            const slide = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.3), mat2);
-            slide.position.set(0, 0.07, -0.16); vmGun.add(slide);
-        }
-        if (w.name === "Keskin Nişancı") {
-            const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.26, 10), mat2);
-            scope.rotation.x = Math.PI / 2;
-            scope.position.set(0, 0.1, -0.28); vmGun.add(scope);
-            const st2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.24), wood);
-            st2.position.z = 0.12; vmGun.add(st2);
-        }
-        if (w.name === "Hafı Makineli") {
-            const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 12), mat2);
-            drum.rotation.z = Math.PI / 2;
-            drum.position.set(0, -0.16, -0.3); vmGun.add(drum);
-        }
-        if (w.name === "Pompalı") {
-            const pump = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.16, 8), wood);
-            pump.rotation.x = Math.PI / 2;
-            pump.position.set(0, -0.05, -0.5); vmGun.add(pump);
-        }
+
         vmGun.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
         vm.add(vmGun);
         return vmGun;
@@ -2725,7 +2834,7 @@ function startFps(net) {
     });
     on(document, "mousemove", (e) => {
         if (!locked) return;
-        const sens = self.ads && self.cur === 2 ? 0.0009 : 0.0022;
+        const sens = (self.ads && self.cur === 2 ? 0.0009 : 0.0022) * (MOB_SET.sens / 7.5);
         self.yaw -= e.movementX * sens;
         self.pitch = clamp(self.pitch - e.movementY * sens, -1.45, 1.45);
     });
@@ -2742,9 +2851,11 @@ function startFps(net) {
     on(window, "keydown", (e) => {
         if (e.code === "Space") e.preventDefault();
         keys[e.code] = true;
+        if (e.code === "Escape" && !IS_MOBILE) { togglePause(); return; }
         if (inMenu) return;
         if (e.code === "KeyR") startReload();
         if (e.code === "KeyB") toggleWeaponMenu();
+        if (e.code === "F11") { e.preventDefault(); toggleFullscreen(); }
         const dig = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4 }[e.code];
         if (dig !== undefined) switchWeapon(dig);
     });
@@ -2797,7 +2908,7 @@ function startFps(net) {
         on(cvsEl, "touchmove", (e) => {
             for (const t of e.changedTouches) {
                 if (t.identifier !== mob.lookId) continue;
-                const sens = self.ads && self.cur === 2 ? 0.0035 : 0.0075;
+                const sens = (self.ads && self.cur === 2 ? 0.0035 : 0.0075) * (MOB_SET.sens / 7.5);
                 self.yaw -= (t.clientX - mob.lastX) * sens;
                 self.pitch = clamp(self.pitch - (t.clientY - mob.lastY) * sens, -1.45, 1.45);
                 mob.lastX = t.clientX; mob.lastY = t.clientY;
@@ -2856,6 +2967,143 @@ function startFps(net) {
         </div>`;
     }
     window.fpsPickWeapon = function (i) { switchWeapon(i); toggleWeaponMenu(false); };
+
+    // ---------- CROSSHAIR SİSTEMİ (özelleştirilebilir) ----------
+    let CH = { style: "cross", color: "#4ade80", size: 8, thick: 2, gap: 6, opacity: 1 };
+    try { const saved = JSON.parse(localStorage.getItem("fps_crosshair") || "null"); if (saved) CH = Object.assign(CH, saved); } catch (e) {}
+    let chBuilt = "";
+    function renderXh() {
+        const el = $("xh");
+        el.style.setProperty("--chc", CH.color);
+        el.style.setProperty("--chs", CH.size + "px");
+        el.style.setProperty("--cht", CH.thick + "px");
+        el.style.setProperty("--gap", (CH.gap + currentSpread() * 1400 * (1 - self.adsCur * 0.8)) + "px");
+        el.style.setProperty("--chop", CH.opacity);
+        const key = CH.style;
+        if (chBuilt !== key) {
+            chBuilt = key;
+            const mk = (cls) => { const d = document.createElement("div"); d.className = cls; el.appendChild(d); return d; };
+            el.innerHTML = "";
+            if (key === "cross") { mk("b-up"); mk("b-dn"); mk("b-lf"); mk("b-rt"); }
+            else if (key === "crossdot") { mk("b-up"); mk("b-dn"); mk("b-lf"); mk("b-rt"); mk("b-dot"); }
+            else if (key === "dot") { mk("b-dot"); }
+            else if (key === "square") { mk("b-sq"); }
+            else if (key === "tcross") { mk("b-dn"); mk("b-lf"); mk("b-rt"); }
+            else if (key === "xcross") {
+                const d1 = mk("b-up"), d2 = mk("b-dn"), d3 = mk("b-lf"), d4 = mk("b-rt");
+                [d1, d2, d3, d4].forEach((d) => { d.style.transform += " rotate(45deg)"; });
+                el.style.transform = "rotate(0deg)";
+                // X şekli için 45° döndürülmüş çubuklar gerekir; basit yaklaşım:
+                el.innerHTML = "";
+                const G = CH.gap * 0.7;
+                [[45, G], [135, G], [225, G], [315, G]].forEach(([ang, g]) => {
+                    const d = document.createElement("div");
+                    d.style.cssText = `position:absolute;left:0;top:0;width:${CH.thick}px;height:${CH.size}px;background:${CH.color};transform:translate(-50%,-50%) rotate(${ang}deg) translateY(${-(g + CH.size / 2)}px);`;
+                    el.appendChild(d);
+                });
+            }
+        }
+        // X şekli renk/boyut değişiminde yeniden kur
+        if (key === "xcross") {
+            const sig = CH.color + CH.size + CH.thick + CH.gap;
+            if (renderXh._sig !== sig) { chBuilt = ""; renderXh._sig = sig; renderXh(); return; }
+        }
+    }
+    function applyXhVisibility() {
+        $("xh").style.display = self.alive && (locked || IS_MOBILE) && !inMenu && !(self.ads && self.cur === 2) ? "block" : "none";
+    }
+
+    // ---------- DURAKLAT MENÜSÜ + AYARLAR ----------
+    let pMenu = null, pTab = "main";
+    const MOB_SET = Object.assign({ jw: 124, fbw: 66, fbh: 54, op: 0.85, joyR: false, sens: 7.5 },
+        (() => { try { return JSON.parse(localStorage.getItem("fps_mobset") || "{}"); } catch (e) { return {}; } })());
+    function saveMobSet() { try { localStorage.setItem("fps_mobset", JSON.stringify(MOB_SET)); } catch (e) {} }
+    function applyMobSet() {
+        const r = document.documentElement.style;
+        r.setProperty("--jw", MOB_SET.jw + "px");
+        r.setProperty("--fbw", MOB_SET.fbw + "px");
+        r.setProperty("--fbh", MOB_SET.fbh + "px");
+        r.setProperty("--fop", MOB_SET.op);
+        const mc = $("fMobileControls");
+        if (mc) mc.classList.toggle("joyR", !!MOB_SET.joyR);
+    }
+    applyMobSet();
+    function togglePause(force) {
+        const open = force !== undefined ? force : !pMenu;
+        if (open) {
+            if (!pMenu) { pMenu = document.createElement("div"); pMenu.id = "fpsPause"; document.body.appendChild(pMenu); }
+            renderPause();
+            pMenu.style.display = "flex";
+            inMenu = true;
+            if (document.exitPointerLock) document.exitPointerLock();
+        } else {
+            if (pMenu) pMenu.style.display = "none";
+            inMenu = false;
+            if (!IS_MOBILE) $("fpsCanvas").requestPointerLock();
+        }
+    }
+    function renderPause() {
+        if (!pMenu) return;
+        let body = "";
+        if (pTab === "main") {
+            body = `
+                <button class="btn btn-join" onclick="fpsPauseNav('resume')">▶ Devam Et</button>
+                <button class="btn btn-join" style="background:#334155" onclick="fpsPauseNav('settings')">⚙ Ayarlar</button>
+                <button class="btn btn-ghost" onclick="fpsPauseNav('lobby')">🚪 Lobeye Dön</button>
+                <button class="btn btn-ghost" onclick="fpsPauseNav('fullscreen')">⛶ Tam Ekran</button>`;
+        } else {
+            const range = (id, label, val, min, max, step, unit) =>
+                `<div class="setRow"><label>${label}: <b>${val}${unit || ""}</b></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;
+            body = `
+                <div class="sect">🎯 CROSSHAIR</div>
+                <div class="chOpts">
+                    ${[["cross", "✚ Artı"], ["crossdot", "✚• Noktalı"], ["dot", "• Nokta"], ["square", "□ Kare"], ["tcross", "⊥ T-Cross"], ["xcross", "✕ Çarpı"]].map(([s, n]) =>
+                        `<button class="${CH.style === s ? "on" : ""}" onclick="fpsSet('chstyle','${s}')">${n}</button>`).join("")}
+                </div>
+                ${range("chSize", "Boyut", CH.size, 2, 20, 1, "px")}
+                ${range("chThick", "Kalınlık", CH.thick, 1, 8, 1, "px")}
+                ${range("chGap", "Boşluk", CH.gap, 0, 20, 1, "px")}
+                <div class="setRow"><label>Renk</label><input type="color" id="chColor" value="${CH.color}"></div>
+                <div class="sect">📱 MOBİL BUTONLAR</div>
+                ${range("mJw", "Joystick Boyutu", MOB_SET.jw, 90, 190, 2, "px")}
+                ${range("mFbw", "Buton Genişliği", MOB_SET.fbw, 48, 110, 2, "px")}
+                ${range("mFbh", "Buton Yüksekliği", MOB_SET.fbh, 40, 100, 2, "px")}
+                ${range("mOp", "Şeffaflık", MOB_SET.op, 0.3, 1, 0.05, "")}
+                ${range("mSens", "Bakış Hassasiyeti", MOB_SET.sens, 3, 15, 0.5, "")}
+                <div class="chOpts" style="margin-top:8px">
+                    <button class="${MOB_SET.joyR ? "" : "on"}" onclick="fpsSet('joySide','L')">◉ Joystick Sol</button>
+                    <button class="${MOB_SET.joyR ? "on" : ""}" onclick="fpsSet('joySide','R')">◉ Joystick Sağ</button>
+                </div>
+                <button class="btn btn-join" style="margin-top:18px" onclick="fpsPauseNav('resume')">▶ Devam Et</button>`;
+        }
+        pMenu.innerHTML = `<div class="pbox">
+            <div class="routeVoteTitle">⏸ OYUN MENÜSÜ</div>
+            ${body}
+        </div>`;
+        const bind = (id, fn) => { const el = $(id); if (el) el.oninput = fn; };
+        bind("chSize", (e) => { CH.size = +e.target.value; saveCh(); });
+        bind("chThick", (e) => { CH.thick = +e.target.value; saveCh(); });
+        bind("chGap", (e) => { CH.gap = +e.target.value; saveCh(); });
+        bind("chColor", (e) => { CH.color = e.target.value; saveCh(); });
+        bind("mJw", (e) => { MOB_SET.jw = +e.target.value; saveMobSet(); applyMobSet(); });
+        bind("mFbw", (e) => { MOB_SET.fbw = +e.target.value; saveMobSet(); applyMobSet(); });
+        bind("mFbh", (e) => { MOB_SET.fbh = +e.target.value; saveMobSet(); applyMobSet(); });
+        bind("mOp", (e) => { MOB_SET.op = +e.target.value; saveMobSet(); applyMobSet(); });
+        bind("mSens", (e) => { MOB_SET.sens = +e.target.value; saveMobSet(); });
+    }
+    function saveCh() { try { localStorage.setItem("fps_crosshair", JSON.stringify(CH)); } catch (e) {} chBuilt = ""; renderXh(); }
+    window.fpsSet = function (what, val) {
+        if (what === "chstyle") { CH.style = val; saveCh(); }
+        if (what === "joySide") { MOB_SET.joyR = val === "R"; saveMobSet(); applyMobSet(); }
+        renderPause();
+    };
+    window.fpsPauseNav = function (where) {
+        if (where === "resume") { togglePause(false); return; }
+        if (where === "settings") { pTab = "settings"; renderPause(); return; }
+        if (where === "fullscreen") { toggleFullscreen(); return; }
+        if (where === "lobby") { togglePause(false); net.returnLobby(); return; }
+    };
+    on($("fMenuBtn"), "click", () => togglePause());
 
     function startReload() {
         const w = FPS_WEAPONS[self.cur];
@@ -3142,6 +3390,8 @@ function startFps(net) {
     function setHtml(id, html) { if (cache[id] !== html) { cache[id] = html; $(id).innerHTML = html; } }
     function setText(id, t) { if (cache[id] !== t) { cache[id] = t; $(id).textContent = t; } }
     function updateHud() {
+        renderXh();
+        applyXhVisibility();
         const aliveC = [0, 0];
         net.state().players.forEach((p) => { if (!deadSet.has(p.id)) aliveC[p.team]++; });
         const tl = S.round === 0 ? "--" : fmtTime(S.phase === "over" ? 0 : S.timeLeft);
@@ -3169,9 +3419,6 @@ function startFps(net) {
         setHtml("fBanner", big ? `<b style="color:${col}">${big}</b><span>${sub}</span>` : "");
         const spec = !self.alive ? specTarget() : null;
         setText("fSpec", !self.alive ? (spec ? "Öldün — " + names[spec] + " izleniyor" : "Öldün") : "");
-        $("xh").style.display = self.alive && (locked || IS_MOBILE) && !inMenu ? "block" : "none";
-        const gapPx = 3 + currentSpread() * 1400 * (1 - self.adsCur * 0.8);
-        $("xh").style.setProperty("--gap", gapPx.toFixed(1) + "px");
     }
 
     // ---------- ANA DÖNGÜ ----------
@@ -3272,6 +3519,8 @@ function startFps(net) {
             if (wMenu) { wMenu.remove(); wMenu = null; }
             if (specScope) { specScope.remove(); specScope = null; }
             delete window.fpsCastVote; delete window.fpsPickWeapon;
+            delete window.fpsSet; delete window.fpsPauseNav;
+            if (pMenu) { pMenu.remove(); pMenu = null; }
             inMenu = false;
             $("fpsGame").classList.add("hidden");
             $("fpsRadar").style.display = "";
@@ -3279,6 +3528,7 @@ function startFps(net) {
             $("fKillfeed").innerHTML = "";
             $("fDamage").style.opacity = "0";
             $("fHit").style.opacity = "0";
+            $("xh").innerHTML = "";
         },
     };
 }
