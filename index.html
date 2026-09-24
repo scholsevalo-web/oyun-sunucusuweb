@@ -1379,6 +1379,8 @@ function startPrison(net) {
         } else { prompt.style.display = "none"; bar.style.display = "none"; pick.t = 0; }
     }
 
+    // Kamera SABİT yönlü (kuzeye bakar): W = ekrana yukarı, A = sol, D = sağ — ters kontrol olamaz.
+    // Karakter sadece yürüdüğü yöne döner (görsel), kamera dönmez.
     function updateMe(dt) {
         me.sprint = false; me.noisy = false;
         if (me.escaped || ended) return;
@@ -1802,63 +1804,11 @@ function startPrison(net) {
         meter.tex.needsUpdate = true;
     }
 
-    // Beton/zemin için basit procedural noise dokusu (prison sahnesi düz renk kalmasın diye)
-    let p3dConcreteTex = null, p3dFloorTex = null;
-    function getPrisonConcreteTex() {
-        if (p3dConcreteTex) return p3dConcreteTex;
-        const cv = document.createElement("canvas"); cv.width = 256; cv.height = 256;
-        const c = cv.getContext("2d");
-        c.fillStyle = "#1e293b"; c.fillRect(0, 0, 256, 256);
-        for (let i = 0; i < 2200; i++) {
-            const x = Math.random() * 256, y = Math.random() * 256;
-            const shade = Math.random() * 40 - 20;
-            c.fillStyle = `rgba(${shade > 0 ? 255 : 0},${shade > 0 ? 255 : 0},${shade > 0 ? 255 : 0},${Math.abs(shade) / 90})`;
-            c.fillRect(x, y, 1.5, 1.5);
-        }
-        c.strokeStyle = "rgba(0,0,0,0.35)"; c.lineWidth = 2;
-        for (let i = 0; i < 6; i++) {
-            c.beginPath(); c.moveTo(Math.random() * 256, 0); c.lineTo(Math.random() * 256, 256); c.stroke();
-        }
-        const tex = new THREE.CanvasTexture(cv);
-        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(4, 4);
-        p3dConcreteTex = tex;
-        return tex;
-    }
-    function getPrisonFloorTex() {
-        if (p3dFloorTex) return p3dFloorTex;
-        const cv = document.createElement("canvas"); cv.width = 256; cv.height = 256;
-        const c = cv.getContext("2d");
-        c.fillStyle = "#0f172a"; c.fillRect(0, 0, 256, 256);
-        c.strokeStyle = "rgba(255,255,255,0.05)"; c.lineWidth = 1.5;
-        for (let i = 0; i <= 256; i += 32) {
-            c.beginPath(); c.moveTo(i, 0); c.lineTo(i, 256); c.stroke();
-            c.beginPath(); c.moveTo(0, i); c.lineTo(256, i); c.stroke();
-        }
-        for (let i = 0; i < 900; i++) {
-            const x = Math.random() * 256, y = Math.random() * 256;
-            c.fillStyle = `rgba(0,0,0,${Math.random() * 0.2})`;
-            c.fillRect(x, y, 2, 2);
-        }
-        const tex = new THREE.CanvasTexture(cv);
-        tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(MW / 2, MH / 2);
-        p3dFloorTex = tex;
-        return tex;
-    }
-
     try {
         p3dRenderer = new THREE.WebGLRenderer({ canvas: cvs, antialias: true, powerPreference: "high-performance" });
         p3dRenderer.setSize(window.innerWidth, window.innerHeight);
         p3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
         p3dRenderer.shadowMap.enabled = true;
-        p3dRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        if (THREE.ACESFilmicToneMapping !== undefined) {
-            p3dRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-            p3dRenderer.toneMappingExposure = 1.05;
-        }
-        if (THREE.SRGBColorSpace !== undefined) p3dRenderer.outputColorSpace = THREE.SRGBColorSpace;
-        else if (THREE.sRGBEncoding !== undefined) p3dRenderer.outputEncoding = THREE.sRGBEncoding;
 
         p3dScene = new THREE.Scene();
         p3dScene.background = new THREE.Color(0x050811);
@@ -1866,12 +1816,12 @@ function startPrison(net) {
 
         p3dCamera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.2, 280);
 
-        ambLight = new THREE.AmbientLight(0x334155, 0.38);
+        ambLight = new THREE.AmbientLight(0x334155, 0.8);
         p3dScene.add(ambLight);
 
         // Zemin ve Tavan
         const floorGeo = new THREE.PlaneGeometry(MW * 3, MH * 3);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85, map: getPrisonFloorTex() });
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set((MW * 3) / 2, 0, (MH * 3) / 2);
@@ -1886,7 +1836,7 @@ function startPrison(net) {
 
         // 3D Duvarlar ve Demir Parmaklıklar
         const wallGeo = new THREE.BoxGeometry(3, 4.2, 3);
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65, metalness: 0.2, map: getPrisonConcreteTex() });
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65, metalness: 0.2 });
 
         const barGeo = new THREE.CylinderGeometry(0.045, 0.045, 4.2, 8);
         const barMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.85, roughness: 0.3 });
@@ -1915,25 +1865,12 @@ function startPrison(net) {
         }
 
         // Koridor Floresan Işıkları
-        // (Her lambaya gölge vermek pahalı olur; sadece birkaçına gölge verip
-        // görsel derinlik katıyoruz, geri kalanı ucuz aydınlatma olarak kalıyor)
-        let p3dLampShadowBudget = 4;
         for (let x = 6; x < MW - 6; x += 8) {
             const lamp = new THREE.PointLight(0xe2e8f0, 0.85, 18, 2);
             lamp.position.set(x * 3, 3.8, 6 * 3);
-            if (p3dLampShadowBudget-- > 0) {
-                lamp.castShadow = true;
-                lamp.shadow.mapSize.set(512, 512);
-                lamp.shadow.bias = -0.003;
-            }
             p3dScene.add(lamp);
             const lamp2 = new THREE.PointLight(0xe2e8f0, 0.85, 18, 2);
             lamp2.position.set(x * 3, 3.8, 14 * 3);
-            if (p3dLampShadowBudget-- > 0) {
-                lamp2.castShadow = true;
-                lamp2.shadow.mapSize.set(512, 512);
-                lamp2.shadow.bias = -0.003;
-            }
             p3dScene.add(lamp2);
         }
 
@@ -1985,9 +1922,6 @@ function startPrison(net) {
             const spot = new THREE.SpotLight(0xfef08a, 2.8, 26, Math.PI / 5, 0.35);
             spot.position.set(0, 1.2, 0.4);
             spot.target.position.set(0, 0.2, 10);
-            spot.castShadow = true;
-            spot.shadow.mapSize.set(768, 768);
-            spot.shadow.bias = -0.003;
             gObj.group.add(spot);
             gObj.group.add(spot.target);
 
@@ -2034,8 +1968,9 @@ function startPrison(net) {
         // 3. Şahıs Omuz / Takip Kamerası (A Way Out Açısı)
         const camDist = me.crouch ? 4.8 : 5.8;
         const camHeight = me.crouch ? 3.4 : 4.4;
-        const targetCamX = px - Math.sin(me.rot) * camDist;
-        const targetCamZ = pz - Math.cos(me.rot) * camDist;
+        // Sabit kamera: hep karakterin güneyinden kuzeye bakar → WASD ekrana birebir aynı (ters kontrol yok)
+        const targetCamX = px;
+        const targetCamZ = pz + camDist;
 
         p3dCamera.position.x = THREE.MathUtils.lerp(p3dCamera.position.x, targetCamX, Math.min(1, dt * 7));
         p3dCamera.position.y = THREE.MathUtils.lerp(p3dCamera.position.y, camHeight, Math.min(1, dt * 7));
