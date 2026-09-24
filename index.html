@@ -1252,11 +1252,7 @@ function startPrison(net) {
             pl.depress = THREE.MathUtils.lerp(pl.depress, pressed ? 0.16 : 0, dt * 10);
             if (pressed) grpUntil[pl.grp] = now + 1200;
         }
-        // plaka kapısı açıldıysa görev 2 -> 3
-        if (mission.stage === 2) {
-            const pd = doors.find((q) => q.kind === "plate");
-            if (pd && pd.open) { setStage(3); net.send({ k: "mission", s: 3 }); }
-        }
+        // (aşama geçişleri updateInteract üzerinden yönetiliyor)
         for (const d of doors) {
             if (d.kind === "plate") {
                 let open = alone || now < grpUntil[d.grp];
@@ -1267,7 +1263,7 @@ function startPrison(net) {
                 }
                 d.open = open;
             } else if (d.kind === "gate") {
-                d.open = mission.stage >= 4;   // son görev: çıkış kapısı açıldı
+                d.open = mission.stage >= 5;   // gece kaçışı: kapı kırılınca açılır
             }
             d.slideOffset = THREE.MathUtils.lerp(d.slideOffset, d.open ? (d.kind === "cell" ? 2.5 : 4.6) : 0, dt * 5);
         }
@@ -1343,31 +1339,75 @@ function startPrison(net) {
     const pick = { t: 0 };
     function updateInteract(dt) {
         const bar = $("pProgress"), prompt = $("pPrompt");
-        let target = null;
-        if (!me.escaped && mission.stage === 1) {
-            for (const d of doors) {
-                if (d.kind === "cell" && !d.open && Math.hypot(me.x - (d.x * T + T / 2), me.y - (d.y * T + T / 2)) < T * 2.2) { target = d; break; }
+        const tx = Math.floor(me.x / T), ty = Math.floor(me.y / T);
+        let label = null, done = null, hold = 2;
+
+        if (!me.escaped) {
+            if (mission.stage === 1) {
+                // TANIŞMA: partnerin hücresinin önüne git, E ile parmaklıkları salla
+                const pd = others[Object.keys(others)[0]];
+                const ptX = pd ? Math.floor(pd.x / T) : 8, ptY = pd ? Math.floor(pd.y / T) : 2;
+                if (tx >= ptX - 2 && tx <= ptX + 3 && ty >= ptY - 1 && ty <= ptY + 3) {
+                    label = "E (basılı tut) — partnerinle tanış (parmaklıkları salla)";
+                    done = () => {
+                        setStage(2);
+                        net.send({ k: "mission", s: 2 });
+                        pToast("Tanıştınız! Şimdi atölyeye sızıp keskiyi çalın.");
+                    };
+                } else {
+                    label = "→ Partnerinin hücresine git (minimapte izle)";
+                }
+            } else if (mission.stage === 2) {
+                // ATÖLYE: keskiyi çal
+                const d2 = Math.hypot(tx - WORK_ZONE.x, ty - WORK_ZONE.y);
+                if (d2 < WORK_ZONE.r) {
+                    label = "E (basılı tut) — keskiyi çal";
+                    done = () => {
+                        setStage(3);
+                        net.send({ k: "mission", s: 3 });
+                        tone(880, 0.2, "square", 0.12);
+                        pToast("Keski sende! Sayım saati gelince çamaşır arabasına gizlen.");
+                    };
+                } else {
+                    label = "→ Atölyeye sız (yan görev, jeneratör yanı)";
+                }
+            } else if (mission.stage === 4) {
+                // ÇAMAŞIR ARABASI: kendini kapat
+                const d2 = Math.hypot(me.x - (CART_ZONE.x * T + T / 2), me.y - (CART_ZONE.y * T + T / 2));
+                if (d2 < CART_ZONE.r * T) {
+                    label = "E (basılı tut) — çamaşır arabasına kendini kapat";
+                    hold = 1.5;
+                    done = () => {
+                        setStage(5);
+                        net.send({ k: "mission", s: 5 });
+                        tone(240, 0.4, "sine", 0.15, 120);
+                        pToast("🌙 GECE ÇIKTI! Gardiyan turları seyrekleşti — çıkış kapısına ikiniz gidin.");
+                        blackoutActive = true;
+                        if (ambLight) ambLight.intensity = 0.25;
+                    };
+                } else {
+                    label = "→ Çamaşır arabasına dön (E ile kendini kapat)";
+                }
             }
         }
+
         me.picking = false;
-        if (target) {
+        if (label) {
             prompt.style.display = "block";
-            prompt.textContent = "E (basılı tut) — hücre kilidini aç";
-            if (keysDown.KeyE) {
-                me.picking = true;
-                pick.t += dt;
-                bar.style.display = "block";
-                bar.firstElementChild.style.width = Math.min(100, pick.t / 2 * 100) + "%";
-                if (pick.t >= 2) {
-                    target.open = true;
-                    net.send({ k: "door", id: target.id });
-                    pick.t = 0; me.picking = false;
-                    tone(300, 0.2, "square", 0.1);
-                    setStage(2);
-                    net.send({ k: "mission", s: 2 });
-                    pToast("Kilit açıldı! Şimdi plaka kapısına — ikiniz plakalara basın.");
-                }
-            } else { pick.t = 0; bar.style.display = "none"; }
+            prompt.textContent = label;
+            if (done) {
+                if (keysDown.KeyE) {
+                    me.picking = true;
+                    pick.t += dt;
+                    bar.style.display = "block";
+                    bar.firstElementChild.style.width = Math.min(100, pick.t / hold * 100) + "%";
+                    if (pick.t >= hold) {
+                        done();
+                        pick.t = 0; me.picking = false;
+                        bar.style.display = "none";
+                    }
+                } else { pick.t = 0; bar.style.display = "none"; }
+            } else { bar.style.display = "none"; pick.t = 0; }
         } else { prompt.style.display = "none"; bar.style.display = "none"; pick.t = 0; }
     }
 
@@ -1394,13 +1434,23 @@ function startPrison(net) {
 
         if (moving) {
             const len = Math.hypot(ax, ay);
-            const targetRot = Math.atan2(ax, ay);
+            // EKRAN-GÖRELİ kontrol: W her zaman ekranın "yukarısı" = kameranın baktığı yön.
+            // Kamera karakteri nereden izlerse izlesin tuşlar asla ters hissettirmez (GTA/A Way Out).
+            const fwd = -ay / len, rgt = ax / len;
+            let fx = 0, fz = -1;
+            if (p3dCamera) {
+                const px3 = me.x / T * 3, pz3 = me.y / T * 3;
+                fx = px3 - p3dCamera.position.x; fz = pz3 - p3dCamera.position.z;
+                const fl = Math.hypot(fx, fz) || 1; fx /= fl; fz /= fl;
+            }
+            const worldX = fx * fwd - fz * rgt;
+            const worldZ = fz * fwd + fx * rgt;
+            const targetRot = Math.atan2(worldX, worldZ);
             me.rot += clamp(angDiff(targetRot, me.rot), -10 * dt, 10 * dt);
 
             const sp = me.crouch ? CROUCH : (me.sprint ? RUN : WALK);
-            const dx = ax / len * sp * dt, dy = ay / len * sp * dt;
-            if (!collides(me.x + dx, me.y, R)) me.x += dx;
-            if (!collides(me.x, me.y + dy, R)) me.y += dy;
+            if (!collides(me.x + worldX * sp * dt, me.y, R)) me.x += worldX * sp * dt;
+            if (!collides(me.x, me.y + worldZ * sp * dt, R)) me.y += worldZ * sp * dt;
             me.animTime += dt * (sp / WALK) * 8;
         }
         checkBranchTriggers();
@@ -1435,17 +1485,59 @@ function startPrison(net) {
         }
     }
 
-    // ---------- A WAY OUT GÖREV ZİNCİRİ ----------
-    // 1: hücre kilidi (E) -> 2: plaka kapısı (co-op) -> 3: jeneratör kararı -> 4: çıkış kapısını kır (E basılı) -> kaç
+    // ---------- A WAY OUT BÖLÜM 1 SENARYOSU (birebir) ----------
+    // 1 TANIŞMA: partnerinin hücresine git, E ile parmaklıkları salla
+    // 2 ATÖLYE GÖREVİ: yan görev (workshop) bölgesine git, keskiyi çal (E)
+    // 3 SAYIM SAATİ: çamaşır arabasına gizlen (E tut) — gardiyan kontrollerine takılma!
+    // 4 ARABAyle DIŞARI: kendini arabaya kapat (E) — seni çamaşır odasına taşır
+    // 5 GECE KAÇIŞI: gece avlusu — kapıyı co-op kır (E ikisi birden) → polis kovalamacası
     const mission = {
         stage: 1,
         texts: [
-            "Hücre kilidini aç (E basılı tut)",
-            "İkiniz plakalara basın — kapı açılır",
-            "Jeneratör merkezine git (şalter / alarm kararı)",
-            "Çıkış kapısını kır (E basılı tut) ve KAÇ!",
+            "Partnerinin hücresine git ve E ile tanış (parmaklıkları salla)",
+            "Atölyeye sız (yan görev) ve keskiyi çal (E)",
+            "SAYIM SAATİ! Çamaşır arabasına saklan (E basılı tut)",
+            "Kendini çamaşır arabasına kapat (E) — dışarı çıkarılacak",
+            "GECE: Çıkış kapısına git, İKİNİZ birden E ile kırın!",
         ],
     };
+    // Sayım saati mini-oyunu durumu (aşama 3)
+    const headCount = {
+        t: 0, need: 4,          // E basılı tutma süresi
+        gaze: 0,                // gardiyanın kapıya bakma sayacı (0-1)
+        caught: false, msg: 0,
+    };
+    // Çamaşır arabası bölgesi (harita üzerinde kuzey koridor çıkışı, çamaşırhane yanı)
+    const CART_ZONE = { x: 25, y: 7, r: 1.6 };   // tile koordinatı
+    // Atölye (keski) bölgesi — jeneratör odasının yanı
+    const WORK_ZONE = { x: 21, y: 13, r: 1.8 };
+
+    function updateHeadCount(dt, now) {
+        if (mission.stage !== 3 || me.escaped) return;
+        const cx = CART_ZONE.x * T + T / 2, cy = CART_ZONE.y * T + T / 2;
+        const near = Math.hypot(me.x - cx, me.y - cy) < CART_ZONE.r * T;
+        const prompt = $("pPrompt"), bar = $("pProgress");
+        if (!near) { headCount.t = Math.max(0, headCount.t - dt * 2); if (prompt.textContent.includes("çamaşır")) { prompt.style.display = "none"; bar.style.display = "none"; } return; }
+        // gardiyan gözcüsü: 3 sn bak / 3 sn dön ritmi; bakarken üstünde olursan sayaç geriler
+        headCount.gaze = (Math.floor(now / 3000) % 2 === 0) ? 1 : 0;
+        if (headCount.gaze && keysDown.KeyE) {
+            if (now - headCount.msg > 1200) { headCount.msg = now; pToast("🚨 Gardiyan bakıyor! DUR!"); tone(200, 0.1, "sawtooth", 0.12); }
+            headCount.t = Math.max(0, headCount.t - dt * 3);
+        } else if (keysDown.KeyE) {
+            headCount.t += dt;
+        } else headCount.t = Math.max(0, headCount.t - dt * 2);
+        prompt.style.display = "block";
+        prompt.textContent = headCount.gaze ? "👁 Gardiyan bakıyor — sakın kıpırdama!" : "E (basılı tut) — çamaşır arabasına gizlen";
+        bar.style.display = "block";
+        bar.firstElementChild.style.width = Math.min(100, headCount.t / headCount.need * 100) + "%";
+        if (headCount.t >= headCount.need) {
+            setStage(4);
+            net.send({ k: "mission", s: 4 });
+            headCount.t = 0;
+            tone(300, 0.3, "sine", 0.15, 500);
+            pToast("Gizlendin! Sayım bitti — şimdi çamaşır arabasına kendini kapat.");
+        }
+    }
     function setStage(n) {
         if (n <= mission.stage) return;
         mission.stage = n;
@@ -1458,10 +1550,10 @@ function startPrison(net) {
     const gateBreak = { t: 0, need: 5, both: false };
     function updateGateBreak(dt) {
         const gate = doors.find((q) => q.kind === "gate");
-        if (!gate || gate.open || me.escaped) { if (gate) gate.open = gate.open || mission.stage >= 4; return; }
+        if (!gate || gate.open || me.escaped) { if (gate) gate.open = gate.open || mission.stage >= 5; return; }
         const cx = gate.x * T + T / 2, cy = gate.y * T + T / 2;
         const near = Math.hypot(me.x - cx, me.y - cy) < T * 2;
-        if (!near || mission.stage < 4) { gateBreak.t = 0; return; }  // önce jeneratör kararı
+        if (!near || mission.stage < 5) { gateBreak.t = 0; return; }  // sadece gece kaçışında
         const solo = net.state().players.length < 2;   // partner koparsa tek de kırılabilsin
         let partnerNear = false;
         for (const id in others) {
@@ -1478,8 +1570,7 @@ function startPrison(net) {
             bar.firstElementChild.style.width = Math.min(100, gateBreak.t / gateBreak.need * 100) + "%";
             if (gateBreak.t >= gateBreak.need) {
                 gate.open = true;
-                setStage(4);
-                mission.texts[3] = "KAÇ! Yeşil çıkış bölgesine git!";
+                mission.texts[4] = "KAÇ! Kaçış aracına bin!";
                 updateMissionHud();
                 net.send({ k: "gate", o: 1 });
                 tone(180, 0.5, "sawtooth", 0.3, 60);
@@ -1494,12 +1585,13 @@ function startPrison(net) {
 
     function updateKeysHud() { updateMissionHud(); } // geriye dönük uyumluluk
     function tryEscape() {
-        if (me.escaped) return;
+        // A Way Out: çıkış yalnızca kapı kırıldıktan sonra (aşama 5) anlamlı
+        if (me.escaped || mission.stage < 5) return;
         const i = tileIdx(me.x, me.y);
         if (i >= 0 && exitZone[i]) {
             me.escaped = true;
             net.send({ k: "esc" });
-            pToast("KAÇTIN! Diğerlerini izleyebilirsin.");
+            pToast("Kaçış aracına ulaştın!");
             tone(660, 0.4, "triangle", 0.15, 990);
             checkWin();
         }
@@ -1517,7 +1609,11 @@ function startPrison(net) {
         if (ended) return;
         ended = true;
         tone(523, 0.3, "triangle", 0.15); setTimeout(() => tone(784, 0.5, "triangle", 0.15), 250);
-        showEnd(net, "KAÇTINIZ! 🎉", `Hapishaneden başarıyla firar ettiniz.<br>Seçilen Rota: <b>Plan ${plan || "A"}</b>`, "#22c55e");
+        // A WAY OUT AKIŞI: kaçış anında hikâye devam eder — polis kovalamacası başlar
+        pToast("🚨 ALARM! Avlu saati geldi, kapılar açıldı — KAÇIŞ ARACINA!");
+        setTimeout(() => {
+            if (ended) currentGame = start3DPoliceChase(net);
+        }, 1600);
     }
 
     // ===================================================================
@@ -1623,20 +1719,20 @@ function startPrison(net) {
         if (activeCoopChoice) return;
         const tx = Math.floor(me.x / T), ty = Math.floor(me.y / T);
 
-        // Branch 1: Koridor Ayrımı & Havalandırma Girişi (hücreden çıkınca)
-        if (!branchTriggered.b1 && mission.stage >= 2 && tx >= 5 && tx <= 9 && ty >= 6 && ty <= 8) {
+        // Branch 1: Koridor ayrımı — atölye görevi sırasında
+        if (!branchTriggered.b1 && mission.stage === 2 && tx >= 5 && tx <= 9 && ty >= 6 && ty <= 8) {
             branchTriggered.b1 = true;
             net.send({ k: "branch_open", b: 1 });
             triggerBranch1();
         }
-        // Branch 2: Güvenlik Şalteri ve Jeneratör Merkezi (plaka kapısından geçince)
-        else if (!branchTriggered.b2 && mission.stage >= 3 && tx >= 19 && tx <= 23 && ty >= 12 && ty <= 15) {
+        // Branch 2: Jeneratör merkezi — keski görevi sırasında (karartma gece işini kolaylaştırır)
+        else if (!branchTriggered.b2 && mission.stage === 2 && tx >= 19 && tx <= 23 && ty >= 12 && ty <= 15) {
             branchTriggered.b2 = true;
             net.send({ k: "branch_open", b: 2 });
             triggerBranch2();
         }
-        // Branch 3: Çıkış Bölgesi (kapı kırılınca final karar halkası: Plan A / Plan C)
-        else if (!branchTriggered.b3 && mission.stage >= 4 && tx >= 32 && ty >= 19) {
+        // Branch 3: Sayım saati başlarken uyarı sahnesi
+        else if (!branchTriggered.b3 && mission.stage === 3 && tx >= 22 && ty <= 9) {
             branchTriggered.b3 = true;
             net.send({ k: "branch_open", b: 3 });
             triggerBranch3();
@@ -1686,20 +1782,9 @@ function startPrison(net) {
     }
 
     function triggerBranch3() {
-        openCoopChoice({
-            leftTitle: "PLAN A: ATÖLYE & TÜNEL",
-            leftDesc: "Bakım bacasından sessizce sızıp garaja gizlice ulaşma.",
-            rightTitle: "PLAN C: AVLUDA İSYAN & KAOS",
-            rightDesc: "Avlu kapısını kırarak gardiyanları dağıtıp kaçış aracına hücum.",
-            onLeft: () => {
-                pToast("PLAN A SEÇİLDİ: Atölye bacasından tahliye başlatılıyor!");
-                finish("A");
-            },
-            onRight: () => {
-                pToast("PLAN C SEÇİLDİ: Avluda isyan patladı, kaçış aracına!");
-                finish("C");
-            }
-        });
+        // Sayım saati uyarısı (karar değil, sahne): gardiyanlar sıraya giriyor
+        pToast("🔔 SAYIM SAATİ! Gardiyanlar sıraya dizildi — çamaşır arabasına!");
+        tone(680, 0.3, "sine", 0.15, 500);
     }
 
     // ===================================================================
@@ -1969,11 +2054,11 @@ function startPrison(net) {
         animateLimbSwings(p3dPlayerObj, pSpd, dt, me.crouch);
 
         // 3. Şahıs Omuz / Takip Kamerası (A Way Out Açısı)
-        const camDist = me.crouch ? 4.8 : 5.8;
-        const camHeight = me.crouch ? 3.4 : 4.4;
-        // Sabit kamera: hep karakterin güneyinden kuzeye bakar → WASD ekrana birebir aynı (ters kontrol yok)
-        const targetCamX = px;
-        const targetCamZ = pz + camDist;
+        const camDist = me.crouch ? 4.2 : 5.2;
+        const camHeight = me.crouch ? 2.8 : 3.4;
+        // Kamera karakterin ARKASINDAN takip eder (A Way Out üçüncü şahıs açısı)
+        const targetCamX = px - Math.sin(me.rot) * camDist;
+        const targetCamZ = pz - Math.cos(me.rot) * camDist;
 
         p3dCamera.position.x = THREE.MathUtils.lerp(p3dCamera.position.x, targetCamX, Math.min(1, dt * 7));
         p3dCamera.position.y = THREE.MathUtils.lerp(p3dCamera.position.y, camHeight, Math.min(1, dt * 7));
@@ -2107,6 +2192,7 @@ function startPrison(net) {
             window.pcVoiceLocal = { x: me.x / T, y: me.y / T };
             updateDoors(now, dt);
             updateInteract(dt);
+            updateHeadCount(dt, now);
             updateMe(dt);
             updateGateBreak(dt);
             tryEscape();
@@ -2167,8 +2253,7 @@ function startPrison(net) {
                 case "gate": {
                     const gate = doors.find((q) => q.kind === "gate");
                     if (gate) gate.open = true;
-                    setStage(4);
-                    mission.texts[3] = "KAÇ! Yeşil çıkış bölgesine git!";
+                    mission.texts[4] = "KAÇ! Kaçış aracına bin!";
                     updateMissionHud();
                     pToast("💥 Partnerin kapıyı kırdı — KAÇIN!");
                     break;
@@ -4648,7 +4733,7 @@ function pcFinale() {
     else if (score.mercy >= 4) ending = ["TANIK", "Vural kelepçelenirken Mert ailesine döndü. Ekip kaçmadı; tanıklık etti. Bu, en riskli ve en insani seçimdi."];
     else ending = ["KÜLLERİN ALTINDA", "Dosya yandı. Yeni isimlerle, yeni şehirlerde yaşamaya başladınız. Her şafakta eski dostların hâlâ yaşıyor olup olmadığını düşündünüz."];
     pcData({ chapter: 7, ending: ending[0], scores: score });
-    pcShow(`<div class="pcK">KAMPANYA FİNALİ · KAYIT EDİLDİ</div><div class="pcT">${ending[0]}</div><div class="pcScene"><b>SEÇİMLERİNİZ HİKÂYEYİ YAZDI.</b><p>${ending[1]}</p><p style="color:#facc15;font-size:14px">Sadakat ${score.loyalty} · Gerçek ${score.truth} · Merhamet ${score.mercy} · Hayatta kalma ${score.survival}</p><button class="pcBtn" onclick="pcHide()">ANA MENÜYE DÖN</button></div>`);
+    pcShow(`<div class="pcK">KAMPANYA FİNALİ · KAYIT EDİLDİ</div><div class="pcT">${ending[0]}</div><div class="pcScene"><b>SEÇİMLERİNİZ HİKÂYEYİ YAZDI.</b><p>${ending[1]}</p><p style="color:#facc15;font-size:14px">Sadakat ${score.loyalty} · Gerçek ${score.truth} · Merhamet ${score.mercy} · Hayatta kalma ${score.survival}</p><button class="pcBtn" onclick="pcHide(); if (pcStoryNet) pcStoryNet.returnLobby();">LOBİYE DÖN</button></div>`);
 }
 // ===================================================================
 //  3D POLİS KOVALAMACASI & GERÇEK ÇATIŞMA MOTORU (Three.js & GLTF)
@@ -5248,14 +5333,17 @@ function start3DPoliceChase(net) {
     function onChaseFail() {
         destroyed = true;
         cancelAnimationFrame(raf);
-        showEnd(net, "YAKALANDINIZ! 🚨", "Polis barikatı aracı hurdaya çevirdi ve kaçış başarısız oldu.<br>Dayanılan Süre: <b>" + fmtTime(DURATION - timeLeft) + "</b>", "#ef4444");
+        // A WAY OUT: yakalanınca hikâye biter — cezaevine geri
+        showEnd(net, "YAKALANDINIZ! 🚨", "Polis barikatı aracı hurdaya çevirdi. Ekip geri döndü… ama bu hikâyenin sonu değil.", "#ef4444");
     }
 
     function onChaseVictory() {
         destroyed = true;
         cancelAnimationFrame(raf);
         tone(523, 0.3, "triangle", 0.15); later(() => tone(784, 0.5, "triangle", 0.2), 250);
-        showEnd(net, "OTOBANDAN SIYRILDINIZ! 🏆", `3 dakikalık amansız takipten kurtuldunuz!<br>Kuzey Eyalet Sınırını Geçtiniz.<br>İmha Edilen Polis Aracı: <b>${killedPoliceCount}</b> • Kalan Zırh: <b>%${Math.ceil(carHp)}</b>`, "#22c55e");
+        // A WAY OUT: sınırı geçince Bölüm 2 hikâyesi başlar (araç sahnesi + bölümler)
+        $("chaseGame").classList.add("hidden");
+        setTimeout(() => pcStoryStart(net), 400);
     }
 
     let lastTime = performance.now();
@@ -5437,142 +5525,6 @@ function start3DPoliceChase(net) {
 // ===================================================================
 //  TOPLU OYLAMA SİSTEMİ (Disguised Route Voting)
 // ===================================================================
-let routeVoteModal = null;
-let myRouteVote = null;
-let routeVotes = { chase: 0, silent: 0 };
-let votedPlayerIds = new Set();
-let pcCurrentNet = null;
-
-// ===================================================================
-//  HİKAYELİ KAÇIŞ ROTASI SEÇİMİ:
-//  A) Atölye & Tünel (Demir kesme, sessiz sızma)
-//  C) Cezaevi İsyanı (Kargaşa, gardiyanları dağıtma)
-// ===================================================================
-const ESCAPE_PLANS = [
-    {
-        id: "plan_workshop",
-        code: "PLAN A: ATÖLYE & HAVALANDIRMA TÜNELİ",
-        desc: "Çamaşırhane arkasındaki bakım tünelinin ızgarasını kesip ana buhar boruları üzerinden tahliye olma rotası. Gardiyan şüphe üçgenini sıfırda tutmak zorundasınız.",
-        reward: "Sessiz Kaçış Avantajı"
-    },
-    {
-        id: "plan_riot",
-        code: "PLAN C: AVLUDA PLANLI İSYAN & KAOS",
-        desc: "Yemekhane çıkışında iki rakip çete arasında bilerek yangın ve kavga başlatıp gardiyanların tüm dikkatini ana avluya çekerek servis kapısından yarma.",
-        reward: "Hızlı Kaçış & Dağıtılmış Gardiyanlar"
-    }
-];
-
-function showDisguisedRouteVote(net) {
-    pcCurrentNet = net;
-    myRouteVote = null;
-    routeVotes = { workshop: 0, riot: 0 };
-    votedPlayerIds.clear();
-
-    if (!routeVoteModal) {
-        routeVoteModal = document.createElement("div");
-        routeVoteModal.id = "routeVoteModal";
-        document.body.appendChild(routeVoteModal);
-    }
-
-    renderRouteVoteModal();
-    routeVoteModal.style.display = "flex";
-}
-
-function renderRouteVoteModal() {
-    if (!routeVoteModal) return;
-    const totalPlayers = (pcCurrentNet && pcCurrentNet.state() && pcCurrentNet.state().players) ? pcCurrentNet.state().players.length : 1;
-    const voteCount = votedPlayerIds.size;
-
-    routeVoteModal.innerHTML = `
-        <div class="routeVoteBox">
-            <div class="routeVoteTitle">KAÇIŞ PROTOKOLÜ VE ROTA KARARI</div>
-            <p class="routeVoteSub">Ana hücre bloğu kilitleri çözüldü. Dış duvara varmak için ekibin hangi yöntemi kullanacağını oylayın.<br>Çoğunluğun kararı görevin bir sonraki aşamasını belirler.</p>
-
-            <div class="routeGrid">
-                <!-- ATÖLYE & TÜNEL -->
-                <div class="routeCard ${myRouteVote === 'workshop' ? 'voted' : ''}" onclick="castRouteVote('workshop')">
-                    <h3>${ESCAPE_PLANS[0].code}</h3>
-                    <div class="rMeta">GİZLİ SIZMA · DEMİR KESME · BUHAR BORULARI</div>
-                    <p>${ESCAPE_PLANS[0].desc}</p>
-                    <span class="routeVotesTag">Oy: ${routeVotes.workshop || 0} Mahkûm</span>
-                </div>
-
-                <!-- AVLUDA İSYAN -->
-                <div class="routeCard ${myRouteVote === 'riot' ? 'voted' : ''}" onclick="castRouteVote('riot')">
-                    <h3>${ESCAPE_PLANS[1].code}</h3>
-                    <div class="rMeta">KAOS STRATEJİSİ · YANGIN · DİKKAT DAĞITMA</div>
-                    <p>${ESCAPE_PLANS[1].desc}</p>
-                    <span class="routeVotesTag">Oy: ${routeVotes.riot || 0} Mahkûm</span>
-                </div>
-            </div>
-
-            <div class="routeStatus">Oylama Durumu: ${voteCount} / ${totalPlayers} Mahkûm Oy Kullandı</div>
-        </div>
-    `;
-}
-
-window.castRouteVote = function(route) {
-    myRouteVote = route;
-    votedPlayerIds.add(pcCurrentNet.myId());
-    routeVotes[route] = (routeVotes[route] || 0) + 1;
-
-    renderRouteVoteModal();
-    if (pcCurrentNet) {
-        pcCurrentNet.send({ k: "route_vote", route, voter: pcCurrentNet.myId() });
-    }
-    checkRouteVoteCompletion();
-};
-
-function checkRouteVoteCompletion() {
-    const totalPlayers = (pcCurrentNet && pcCurrentNet.state() && pcCurrentNet.state().players) ? pcCurrentNet.state().players.length : 1;
-    if (votedPlayerIds.size >= totalPlayers || totalPlayers <= 1) {
-        setTimeout(() => {
-            if (routeVoteModal) routeVoteModal.style.display = "none";
-            const winner = (routeVotes.riot || 0) > (routeVotes.workshop || 0) ? "riot" : "workshop";
-            if (winner === "riot") {
-                toast("PLAN C DEVREYE GİRDİ: Avluda isyan patlak verdi! Gardiyanlar dağıldı!");
-            } else {
-                toast("PLAN A DEVREYE GİRDİ: Atölye havalandırmasına sızıldı!");
-            }
-            // 3D Kaçış Aracı ve Çatışma aşamasına intikal et
-            currentGame = start3DPoliceChase(pcCurrentNet);
-        }, 800);
-    }
-}
-
-// showEnd Kancasını Güncelle: Kaçış tamamlandığında oylama penceresi açılsın
-const pcOriginalShowEnd = showEnd;
-showEnd = function(net, title, text, color) {
-    if (String(title).includes("KAÇTINIZ")) {
-        showDisguisedRouteVote(net);
-        return;
-    }
-    pcOriginalShowEnd(net, title, text, color);
-};
-
-// StartPrison sarmalayıcısına route oylama relay yakalayıcısı ekle
-const pcPreviousStartPrison = startPrison;
-startPrison = function(net) {
-    pcNet = net;
-    pcSelect();
-    const handleOrig = pcPreviousStartPrison(net);
-    return {
-        ...handleOrig,
-        onRelay(from, data) {
-            if (data && data.k === "route_vote") {
-                routeVotes[data.route] = (routeVotes[data.route] || 0) + 1;
-                votedPlayerIds.add(data.voter);
-                renderRouteVoteModal();
-                checkRouteVoteCompletion();
-                return;
-            }
-            if (handleOrig.onRelay) handleOrig.onRelay(from, data);
-        }
-    };
-};
-
-
 connect();
 </script>
 
