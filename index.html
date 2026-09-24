@@ -2418,7 +2418,7 @@ function startFps(net) {
     } catch (e) { toast("WebGL desteklenmiyor!"); return { onRelay() {}, onRoomState() {}, destroy() {} }; }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.5 : 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = IS_MOBILE ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     if (THREE.sRGBEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
     if (THREE.ACESFilmicToneMapping !== undefined) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; }
 
@@ -2961,31 +2961,34 @@ function startFps(net) {
         const legL = limb(-0.16, 0.72, 0.74, 0.105, cloth, true);
         const legR = limb(0.16, 0.72, 0.74, 0.105, cloth, true);
 
-        // 4. ELDEKİ TAKTİK PİYADE TÜFEĞİ (Gerçekçi Model)
+        // 4. ELDEKİ TAKTİK PİYADE TÜFEĞİ (Doğrudan sağ ele bağlanmış)
         const gun = new THREE.Group();
-        const gBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.52), darkMat);
-        gBody.position.set(0, 0, -0.16); gun.add(gBody);
+        const gBody = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.11, 0.48), darkMat);
+        gBody.position.set(0, 0.04, -0.14); gun.add(gBody);
 
-        const gBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.36, 8), metalMat);
-        gBarrel.rotation.x = Math.PI / 2; gBarrel.position.set(0, 0.02, -0.56); gun.add(gBarrel);
+        const gBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.38, 8), metalMat);
+        gBarrel.rotation.x = Math.PI / 2; gBarrel.position.set(0, 0.06, -0.52); gun.add(gBarrel);
 
         const gFlash = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.02, 0.08, 8), darkMat);
-        gFlash.rotation.x = Math.PI / 2; gFlash.position.set(0, 0.02, -0.74); gun.add(gFlash);
+        gFlash.rotation.x = Math.PI / 2; gFlash.position.set(0, 0.06, -0.72); gun.add(gFlash);
 
-        const gMag = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.22, 0.11), darkMat);
-        gMag.position.set(0, -0.14, -0.22); gMag.rotation.x = -0.25; gun.add(gMag);
+        const gMag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.20, 0.10), darkMat);
+        gMag.position.set(0, -0.10, -0.20); gMag.rotation.x = -0.25; gun.add(gMag);
 
-        const gSight = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.12), metalMat);
-        gSight.position.set(0, 0.08, -0.16); gun.add(gSight);
+        const gSight = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.06, 0.12), metalMat);
+        gSight.position.set(0, 0.12, -0.14); gun.add(gSight);
 
-        const gStock = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.10, 0.22), darkMat);
-        gStock.position.set(0, -0.01, 0.14); gun.add(gStock);
+        const gStock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.09, 0.20), darkMat);
+        gStock.position.set(0, 0.03, 0.14); gun.add(gStock);
 
-        gun.position.set(0.32, 1.28, -0.32);
-        gun.rotation.x = -0.06;
-        grp.add(gun);
+        // Silahı sağ kolun ucundaki eldivenin içine yerleştir
+        gun.position.set(0, -0.56, 0.06);
+        gun.rotation.set(Math.PI / 2 + 0.1, 0, -0.08);
+        armR.add(gun);
 
-        armR.rotation.x = -1.15; armL.rotation.x = -1.0; armL.rotation.z = 0.48;
+        // İki elle profesyonel taktik tutuş
+        armR.rotation.set(-1.18, -0.12, -0.05);
+        armL.rotation.set(-1.08, 0.38, 0.52);
 
         // takım ismi etiketi
         const lblCv = document.createElement("canvas");
@@ -3124,11 +3127,18 @@ function startFps(net) {
         while (vmGun && vmGun.children.length) vmGun.remove(vmGun.children[0]);
         if (vmGun) vm.remove(vmGun);
         vmGun = new THREE.Group();
-        const matBody = new THREE.MeshStandardMaterial({ color: 0x24272e, roughness: 0.38, metalness: 0.72 });
-        const matMetal = new THREE.MeshStandardMaterial({ color: 0x3a3f49, roughness: 0.3, metalness: 0.85 });
-        const matWood = new THREE.MeshStandardMaterial({ color: 0x6d4426, roughness: 0.75, metalness: 0.05 });
-        const matPoly = new THREE.MeshStandardMaterial({ color: 0x15181e, roughness: 0.6, metalness: 0.3 });
-        const matGreen = new THREE.MeshStandardMaterial({ color: 0x4a5240, roughness: 0.65, metalness: 0.2 });
+        // Taktik Kaplama Materyalleri
+        const matBody = new THREE.MeshStandardMaterial({ color: 0x1f232b, roughness: 0.35, metalness: 0.8 });
+        const matSteel = new THREE.MeshStandardMaterial({ color: 0x3d434f, roughness: 0.28, metalness: 0.88 });
+        const matPoly = new THREE.MeshStandardMaterial({ color: 0x12151a, roughness: 0.6, metalness: 0.25 });
+        const matOD = new THREE.MeshStandardMaterial({ color: 0x384232, roughness: 0.7, metalness: 0.15 }); // Askeri Haki Yeşil
+        const matChrome = new THREE.MeshStandardMaterial({ color: 0x8a929e, roughness: 0.2, metalness: 0.95 }); // Krom Sürgü
+        const matGrip = new THREE.MeshStandardMaterial({ color: 0x181a1f, roughness: 0.8, metalness: 0.1 });
+        const matGlass = new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.1, metalness: 0.9, emissive: 0x10b981, emissiveIntensity: 0.7 });
+        const matRedDot = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+        const matShell = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.5, metalness: 0.3 }); // Pompalı fişeği
+        const matBrass = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.85 }); // Pirinç kovan
+
         const name = w.name;
         const add = (geo, mat, x, y, z, rx, ry, rz) => {
             const m = new THREE.Mesh(geo, mat);
@@ -3138,64 +3148,94 @@ function startFps(net) {
             vmGun.add(m);
             return m;
         };
-        const B = (a,b,c) => new THREE.BoxGeometry(a, b, c);
+        const B = (a, b, c) => new THREE.BoxGeometry(a, b, c);
         const C = (r, h, s) => new THREE.CylinderGeometry(r, r, h, s || 10);
 
         if (name === "Tüfek") {
-            // AK-47 tarzı: ahşap el kundağı + urganlı eğik şarjör + gaz tüpü
-            add(B(0.075, 0.1, 0.5), matBody, 0, 0, -0.2);                 // gövde
-            add(C(0.016, 0.42, 8), matMetal, 0, 0.005, -0.62, Math.PI/2); // namlu
-            add(C(0.024, 0.2, 8), matWood, 0, 0.005, -0.44, Math.PI/2);   // ahşap el kundağı
-            add(C(0.013, 0.22, 8), matMetal, 0, 0.045, -0.42, Math.PI/2); // gaz tüpü
-            add(B(0.05, 0.2, 0.1), matWood, 0, -0.13, -0.1, 0.3);         // kabza
-            add(B(0.055, 0.22, 0.07), matMetal, 0.0, -0.14, -0.3, -0.45); // eğik şarjör
-            add(B(0.06, 0.09, 0.24), matWood, 0, -0.02, 0.15);            // ahşap dipçik
-            add(B(0.02, 0.03, 0.03), matMetal, 0, 0.07, -0.75);           // arpacık
-            add(B(0.045, 0.035, 0.05), matMetal, 0, 0.065, -0.1);         // gez
+            // M4A1 / HK416 Modern Taktik Piyade Tüfeği
+            add(B(0.068, 0.095, 0.44), matBody, 0, 0, -0.18); // Üst & Alt Gövde
+            add(C(0.016, 0.40, 8), matSteel, 0, 0.012, -0.56, Math.PI / 2); // Namlu
+            add(C(0.024, 0.07, 8), matSteel, 0, 0.012, -0.76, Math.PI / 2); // Alev Gizleyen / Kompansatör
+            // Dörtlü Picatinny Raylı El Kundağı (Quad Rail)
+            add(B(0.062, 0.075, 0.26), matPoly, 0, 0.012, -0.42);
+            add(B(0.066, 0.015, 0.24), matSteel, 0, 0.054, -0.42); // Üst Ray
+            add(B(0.066, 0.015, 0.24), matSteel, 0, -0.03, -0.42); // Alt Ray
+            // Holografik Taktik Dürbün (EOTech Optik)
+            add(B(0.052, 0.055, 0.13), matBody, 0, 0.082, -0.16); // Dürbün gövdesi
+            add(B(0.038, 0.038, 0.01), matGlass, 0, 0.088, -0.22); // Yeşil yansımalı cam
+            add(B(0.008, 0.008, 0.005), matRedDot, 0, 0.088, -0.218); // Kırmızı Nişangah Noktası!
+            // Kavisli STANAG Şarjör
+            add(B(0.048, 0.22, 0.09), matSteel, 0, -0.13, -0.25, -0.32);
+            // Taktik Tabanca Kabzası
+            add(B(0.048, 0.17, 0.08), matGrip, 0, -0.12, -0.05, 0.28);
+            // Teleskopik Vinç Dipçik (Crane Stock)
+            add(C(0.018, 0.18, 8), matSteel, 0, 0.015, 0.09, Math.PI / 2); // Tampon tüpü
+            add(B(0.058, 0.11, 0.20), matPoly, 0, -0.01, 0.18); // Dipçik pedi
         } else if (name === "Keskin Nişancı") {
-            // AWP tarzı: yeşil gövde + büyük dürbün + kurma kolu + bipod
-            add(B(0.07, 0.11, 0.62), matGreen, 0, 0, -0.26);
-            add(C(0.015, 0.55, 8), matMetal, 0, 0.01, -0.82, Math.PI/2);  // uzun namlu
-            add(C(0.03, 0.07, 10), matMetal, 0, 0.01, -1.06, Math.PI/2);  // namlu ucu (muzzle brake)
-            add(B(0.06, 0.1, 0.26), matGreen, 0, -0.02, 0.18);            // dipçik
-            add(B(0.05, 0.18, 0.09), matPoly, 0, -0.13, -0.05, 0.25);     // kabza
-            const sc = add(C(0.042, 0.3, 12), matBody, 0, 0.115, -0.3, Math.PI/2); // dürbün
-            add(C(0.05, 0.04, 12), matBody, 0, 0.115, -0.44, Math.PI/2);  // objektif
-            add(C(0.045, 0.03, 12), matBody, 0, 0.115, -0.16, Math.PI/2); // oküler
-            add(B(0.014, 0.05, 0.02), matMetal, 0, 0.065, -0.22);         // dürbün ayakları
-            add(B(0.014, 0.05, 0.02), matMetal, 0, 0.065, -0.38);
-            const bolt = add(C(0.011, 0.09, 6), matMetal, 0.05, 0.02, -0.08, 0, 0, 0.9); // kurma kolu
-            add(B(0.03, 0.02, 0.14), matMetal, -0.05, -0.01, -0.7, 0, 0, 0.5); // bipod
-            add(B(0.03, 0.02, 0.14), matMetal, 0.05, -0.01, -0.7, 0, 0, -0.5);
+            // L96 / AWP Özel Kuvvetler Keskin Nişancı Tüfeği
+            add(B(0.075, 0.11, 0.58), matOD, 0, 0, -0.22); // Haki Yeşil Kompozit Kundak
+            add(C(0.018, 0.62, 10), matSteel, 0, 0.018, -0.78, Math.PI / 2); // Yivli Ağır Bull Barrel
+            add(B(0.045, 0.055, 0.09), matSteel, 0, 0.018, -1.08); // Ağır İki Odalı Namlu Freni
+            // Devasa Keskin Nişancı Optik Dürbünü (Mil-Dot Scope)
+            add(C(0.036, 0.36, 12), matBody, 0, 0.125, -0.26, Math.PI / 2); // Ana tüp
+            add(C(0.048, 0.09, 12), matBody, 0, 0.125, -0.44, Math.PI / 2); // Güneşlikli Objektif
+            add(C(0.040, 0.05, 12), matPoly, 0, 0.125, -0.09, Math.PI / 2); // Kauçuk Göz Pedi
+            add(C(0.016, 0.03, 8), matSteel, 0, 0.165, -0.26); // Yükseklik Ayar Tamburu
+            add(C(0.016, 0.03, 8), matSteel, 0.045, 0.125, -0.26, 0, 0, Math.PI / 2); // Rüzgar Tamburu
+            add(B(0.018, 0.055, 0.03), matSteel, 0, 0.075, -0.16); // Dürbün Ayağı 1
+            add(B(0.018, 0.055, 0.03), matSteel, 0, 0.075, -0.36); // Dürbün Ayağı 2
+            // Kurma Kolu (Bolt Handle)
+            add(C(0.010, 0.10, 6), matChrome, 0.055, 0.03, -0.06, 0, 0, 1.0);
+            add(new THREE.SphereGeometry(0.018, 8, 8), matChrome, 0.095, 0.07, -0.06); // Topuz
+            // Yanak Dayamalı Ergonomik Başparmak Delikli Dipçik
+            add(B(0.062, 0.14, 0.30), matOD, 0, -0.02, 0.20);
+            add(B(0.050, 0.035, 0.16), matPoly, 0, 0.065, 0.16); // Yanak Dayama Pedi
+            // Katlanmış Çelik Bipod (Çatal Ayak)
+            add(B(0.022, 0.02, 0.18), matSteel, -0.045, -0.015, -0.58, 0, 0, 0.35);
+            add(B(0.022, 0.02, 0.18), matSteel, 0.045, -0.015, -0.58, 0, 0, -0.35);
         } else if (name === "Hafı Makineli") {
-            // MP5 tarzı: kompakt gövde + ön kabza + kıvrık şarjör + nişangah
-            add(B(0.07, 0.1, 0.4), matBody, 0, 0, -0.16);
-            add(C(0.018, 0.24, 8), matMetal, 0, 0.005, -0.44, Math.PI/2); // namlu
-            add(C(0.026, 0.1, 8), matBody, 0, 0.005, -0.34, Math.PI/2);   // namlu somunu
-            add(B(0.045, 0.16, 0.08), matPoly, 0, -0.11, -0.08, 0.2);     // kabza
-            add(B(0.04, 0.18, 0.05), matMetal, 0, -0.12, -0.3, -0.12);    // kıvrık şarjör
-            add(B(0.05, 0.05, 0.16), matPoly, 0, -0.01, 0.12);            // katlanır dipçik
-            add(B(0.02, 0.05, 0.03), matMetal, 0, 0.07, -0.3);            // ön nişangah halkası
-            const ring = add(new THREE.TorusGeometry(0.022, 0.006, 6, 14), matMetal, 0, 0.07, -0.3); ring.rotation.x = 0;
-            add(B(0.04, 0.03, 0.04), matMetal, 0, 0.065, -0.02);          // arka nişangah
+            // MP5-SD / Vector Kompakt Taktik Hafif Makineli
+            add(B(0.065, 0.095, 0.38), matBody, 0, 0, -0.14); // Kompakt Gövde
+            add(C(0.034, 0.32, 10), matPoly, 0, 0.012, -0.44, Math.PI / 2); // Entegre Susturucu Namlu (SD)
+            add(B(0.044, 0.16, 0.07), matGrip, 0, -0.11, -0.04, 0.22); // Ergonomik Kabza
+            add(B(0.038, 0.14, 0.05), matGrip, 0, -0.09, -0.28); // Ön Dikey Tutamak (Foregrip)
+            add(B(0.036, 0.22, 0.06), matSteel, 0, -0.14, -0.18, -0.20); // 9mm Kavisli Şarjör
+            // Mini Red-Dot Taktik Refleks Optik
+            add(B(0.042, 0.038, 0.08), matBody, 0, 0.072, -0.14);
+            add(B(0.030, 0.028, 0.01), matGlass, 0, 0.075, -0.18);
+            add(B(0.006, 0.006, 0.004), matRedDot, 0, 0.075, -0.178);
+            // PDW Çift Raylı Tel Dipçik
+            add(C(0.008, 0.22, 6), matSteel, -0.032, 0.01, 0.14, Math.PI / 2);
+            add(C(0.008, 0.22, 6), matSteel, 0.032, 0.01, 0.14, Math.PI / 2);
+            add(B(0.068, 0.08, 0.02), matPoly, 0, 0.01, 0.25);
         } else if (name === "Tabanca") {
-            // Deagle tarzı: büyük sürgü + geniş namlu + ön kabza tırnağı
-            add(B(0.085, 0.095, 0.34), matMetal, 0, 0.02, -0.14);         // sürgü
-            add(B(0.07, 0.08, 0.3), matBody, 0, -0.045, -0.12);           // gövde
-            add(C(0.02, 0.08, 8), matMetal, 0, 0.025, -0.33, Math.PI/2);  // namlu ucu
-            add(B(0.05, 0.17, 0.09), matPoly, 0, -0.13, -0.02, 0.28);     // kabza
-            add(B(0.03, 0.04, 0.03), matMetal, 0, 0.075, -0.28);          // arpacık
-            add(B(0.05, 0.035, 0.03), matMetal, 0, 0.072, 0.0);           // gez
-            const vent = add(B(0.06, 0.012, 0.2), matBody, 0, 0.075, -0.14); // sürgü havalandırması
+            // Desert Eagle .50 AE Ağır Taktik Tabanca
+            add(B(0.078, 0.088, 0.32), matChrome, 0, 0.03, -0.14); // Parlak Krom Sürgü
+            add(B(0.072, 0.075, 0.28), matBody, 0, -0.035, -0.12); // Çerçeve Gövde
+            add(C(0.024, 0.07, 8), matChrome, 0, 0.035, -0.32, Math.PI / 2); // .50 Kalibre Namlu Ağzı
+            add(B(0.052, 0.17, 0.095), matGrip, 0, -0.13, -0.02, 0.26); // Konturlu Kauçuk Kabza
+            // Sürgü Soğutma Kanalları & Horoz
+            add(B(0.055, 0.015, 0.16), matSteel, 0, 0.078, -0.14);
+            add(B(0.025, 0.04, 0.03), matSteel, 0, 0.05, 0.02, -0.4); // Horoz (Hammer)
+            // Fosforlu Gez ve Arpacık (Trijicon Night Sights)
+            add(B(0.022, 0.025, 0.02), matBody, 0, 0.085, -0.27); // Arpacık
+            add(B(0.006, 0.006, 0.005), matRedDot, 0, 0.086, -0.278); // Yeşil/Kırmızı Fosfor
+            add(B(0.045, 0.025, 0.025), matBody, 0, 0.082, 0.01); // Gez
         } else {
-            // Pompalı: çift tüp + pompa kundağı + hedef nişangahı
-            add(B(0.075, 0.11, 0.42), matBody, 0, 0, -0.16);
-            add(C(0.021, 0.5, 8), matMetal, 0, 0.02, -0.58, Math.PI/2);   // üst namlu
-            add(C(0.019, 0.42, 8), matMetal, 0, -0.025, -0.52, Math.PI/2);// tüp şarjör
-            add(C(0.028, 0.16, 8), matWood, 0, -0.025, -0.48, Math.PI/2); // pompa kundağı
-            add(B(0.055, 0.2, 0.1), matWood, 0, -0.12, -0.05, 0.3);       // kabza
-            add(B(0.06, 0.1, 0.26), matWood, 0, -0.02, 0.16);             // dipçik
-            add(B(0.016, 0.035, 0.03), matMetal, 0, 0.06, -0.78);         // mini arpacık
+            // Taktik 12-Gauge Muharebe Pompalı Tüfeği (Combat Shotgun)
+            add(B(0.072, 0.10, 0.44), matBody, 0, 0, -0.15); // Gövde Alıcısı
+            add(C(0.022, 0.54, 8), matSteel, 0, 0.028, -0.56, Math.PI / 2); // 12-GA Namlu
+            add(C(0.028, 0.28, 8), matSteel, 0, 0.036, -0.44, Math.PI / 2); // Delikli Isı Kalkanı (Heat Shield)
+            add(C(0.020, 0.48, 8), matSteel, 0, -0.024, -0.52, Math.PI / 2); // Boru Şarjör Tüpü
+            add(C(0.032, 0.18, 10), matGrip, 0, -0.024, -0.48, Math.PI / 2); // Tırtıklı Taktik Pompa Kundağı
+            add(B(0.048, 0.18, 0.09), matGrip, 0, -0.12, -0.04, 0.26); // Tabanca Kabzası
+            add(B(0.058, 0.11, 0.26), matPoly, 0, 0.01, 0.18); // Taktik Dipçik
+            // Gövde Yanında Fişek Taşıyıcı (Sidesaddle Shell Holder - 4 Adet Kırmızı Fişek)
+            add(B(0.018, 0.05, 0.16), matBody, 0.042, 0.02, -0.15);
+            for (let s = 0; s < 4; s++) {
+                add(C(0.011, 0.035, 6), matShell, 0.052, 0.02, -0.21 + s * 0.04, Math.PI / 2); // Kırmızı kovan
+                add(C(0.0115, 0.01, 6), matBrass, 0.052, 0.02, -0.23 + s * 0.04, Math.PI / 2); // Pirinç dip tablası
+            }
         }
 
         vmGun.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
@@ -3266,10 +3306,20 @@ function startFps(net) {
         if (S.mapId !== null && S.mapId !== builtMapId) buildMap(S.mapId);
         if (S.phase === "vote") { showVoteModal(); }
         else hideVoteModal();
-        if (S.phase === "freeze" && S.round !== localRound) {
-            localRound = S.round;
-            respawn();
-            tone(440, 0.15, "square", 0.08);
+        if (S.phase === "freeze") {
+            const mobM = $("fMobMenu");
+            if (mobM) { mobM.innerHTML = "🛒 SİLAHLAR"; mobM.style.opacity = "1"; mobM.style.borderColor = "#22c55e"; }
+            if (S.round !== localRound) {
+                localRound = S.round;
+                respawn();
+                tone(440, 0.15, "square", 0.08);
+                toast("🛒 [B] Cephanelik Açık! Silahını seç (5 sn)");
+            }
+        } else {
+            // Raund başladı veya bittiğinde mağaza açıksa hemen kapat
+            if (wMenu && wMenu.style.display !== "none") toggleWeaponMenu(false);
+            const mobM = $("fMobMenu");
+            if (mobM) { mobM.innerHTML = "🔒 SİLAHLAR"; mobM.style.opacity = "0.45"; mobM.style.borderColor = "#475569"; }
         }
         if (S.phase === "over") showOver();
         lastBroadcast = performance.now();
@@ -3504,12 +3554,20 @@ function startFps(net) {
         hold("fMobMenu", () => toggleWeaponMenu());
     }
 
-    // ---------- SİLAH MENÜSÜ (B) ----------
+    // ---------- SİLAH MENÜSÜ (B) — SADECE 5 SN HAZIRLIKTA AKTİF ----------
     let wMenu = null;
     function toggleWeaponMenu(force) {
-        const open = force !== undefined ? force : !inMenu;
-        inMenu = open;
-        if (open) {
+        const isOpen = wMenu && wMenu.style.display === "flex";
+        const willOpen = force !== undefined ? force : !isOpen;
+
+        // Mağaza yalnızca 5 saniyelik hazırlık (freeze) süresinde açılabilir
+        if (willOpen && S.phase !== "freeze") {
+            toast("⏳ Cephanelik sadece raund başındaki 5 saniyelik hazırlık süresinde açılabilir!");
+            return;
+        }
+
+        inMenu = willOpen;
+        if (willOpen) {
             if (!wMenu) {
                 wMenu = document.createElement("div");
                 wMenu.id = "wMenu";
@@ -3520,14 +3578,15 @@ function startFps(net) {
             if (document.exitPointerLock) document.exitPointerLock();
         } else if (wMenu) {
             wMenu.style.display = "none";
-            $("fpsCanvas").requestPointerLock();
+            if (document.pointerLockElement !== $("fpsCanvas") && !IS_MOBILE) $("fpsCanvas").requestPointerLock();
         }
     }
     function renderWeaponMenu() {
         if (!wMenu) return;
+        const timeLeftSec = Math.max(0, Math.ceil(S.timeLeft));
         wMenu.innerHTML = `<div class="wBox">
-            <div class="routeVoteTitle">🔫 CEPHANELİK</div>
-            <p class="routeVoteSub">Bir silah seç — [1-5] tuşlarıyla da hızlı geçebilirsin. (B: kapat)</p>
+            <div class="routeVoteTitle">🛒 CEPHANELİK (HAZIRLIK SÜRESİ: ${timeLeftSec}s)</div>
+            <p class="routeVoteSub">Raund başlamadan önce silahını seç! 5 saniye sonra dükkan kapanır.</p>
             <div class="wGrid">
                 ${FPS_WEAPONS.map((w, i) => `
                 <div class="wCard ${self.cur === i ? "sel" : ""}" onclick="fpsPickWeapon(${i})">
@@ -3539,7 +3598,16 @@ function startFps(net) {
             </div>
         </div>`;
     }
-    window.fpsPickWeapon = function (i) { switchWeapon(i); toggleWeaponMenu(false); };
+    window.fpsPickWeapon = function (i) {
+        if (S.phase !== "freeze") {
+            toast("⏳ Raund başladı, silah değiştirilemez!");
+            toggleWeaponMenu(false);
+            return;
+        }
+        switchWeapon(i);
+        toggleWeaponMenu(false);
+        toast(`Seçildi: ${FPS_WEAPONS[i].name} ✅`);
+    };
 
     // ---------- CROSSHAIR SİSTEMİ (özelleştirilebilir) ----------
     let CH = { style: "cross", color: "#4ade80", size: 8, thick: 2, gap: 6, opacity: 1 };
@@ -3895,7 +3963,8 @@ function startFps(net) {
                 if (moving) ch.walkT += dt * (4.5 + o.spd * 1.35);
                 const sw = Math.sin(ch.walkT) * (moving ? clamp(o.spd / 6, 0.15, 1) * 0.8 : 0);
                 ch.legL.rotation.x = sw; ch.legR.rotation.x = -sw;
-                ch.armL.rotation.x = -1.0 + sw * 0.25; ch.armR.rotation.x = -1.15 - sw * 0.25;
+                ch.armR.rotation.x = -1.18 - sw * 0.12;
+                ch.armL.rotation.x = -1.08 - sw * 0.12;
                 if (ch.flashT > 0) {
                     ch.flashT -= dt;
                     ch.cloth.emissive = ch.cloth.emissive || new THREE.Color(0);
@@ -4078,6 +4147,10 @@ function startFps(net) {
         // (cd relay zaten case "cd" ile işleniyor, bu sadece WS countdown için)
     };
 
+    // Başlangıçta harita 0'ı derhal inşa et ve durumu senkronize et (PC ve mobilde hemen görünsün)
+    buildMap(0);
+    afterState();
+
     return {
         onCountdown: (m) => { if (onCountdownImpl) onCountdownImpl(m); },
         onRelay(from, d) {
@@ -4206,20 +4279,18 @@ function appendChat(from, text, team) {
 let localAudioStream = null;
 const peers = {};
 window.pcVoiceRemote = window.pcVoiceRemote || {};
-// glare önleme: offer yalnızca ID'si küçük taraftan gelir (her iki taraf da mikrofonu açsa bile)
 function voiceIAmInitiator(peerId) { return String(myId) < String(peerId); }
-// mobil autoplay: kullanıcı etkileşimi gelince bekleyen sesleri başlat
 const pendingAudios = [];
-function tryPlayAudio(a) {
-    const p = a.play();
-    if (p && p.catch) p.catch(() => { if (!pendingAudios.includes(a)) pendingAudios.push(a); });
+function tryPlayAudio(audioEl) {
+    if (!audioEl) return;
+    const p = audioEl.play();
+    if (p && p.catch) p.catch(() => { if (!pendingAudios.includes(audioEl)) pendingAudios.push(audioEl); });
 }
 document.addEventListener("pointerdown", () => {
-    while (pendingAudios.length) { const a = pendingAudios.pop(); tryPlayAudio(a); }
+    actx();
+    while (pendingAudios.length) { const el = pendingAudios.pop(); tryPlayAudio(el); }
 }, { passive: true });
 
-// Yakındaki oyuncu net duyulur; uzaklaştıkça ses azalır. Arada duvar varsa
-// örnekleme sistemi sesi yaklaşık %82 kısar.
 function pcVoiceBlocked(a, b) {
     const map = window.pcVoiceMap;
     if (!map || !a || !b) return false;
@@ -4243,29 +4314,52 @@ function pcSetVoiceVolume(audio, peerId) {
 if ($("micBtn")) {
     $("micBtn").onclick = async () => {
         const btn = $("micBtn");
+        actx();
         if (!localAudioStream) {
             try {
-                localAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                localAudioStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    },
+                    video: false
+                });
                 btn.classList.add("active");
                 btn.classList.remove("muted");
-                toast("Mikrofon açıldı.");
+                toast("🎤 Mikrofon açıldı!");
                 
-                if (roomState) {
-                    // mikrofon sonradan açıldıysa eski bağlantılar sesi taşımaz — hepsini taze kur
-                    for (const pid in peers) { try { peers[pid].close(); } catch (e) {} delete peers[pid]; }
+                // Mevcut tüm peer bağlantılarına audio track ekle ve renegotiate et
+                const track = localAudioStream.getAudioTracks()[0];
+                for (const pid in peers) {
+                    const pc = peers[pid];
+                    if (pc && track) {
+                        try {
+                            pc.addTrack(track, localAudioStream);
+                            const offer = await pc.createOffer();
+                            await pc.setLocalDescription(offer);
+                            wsSend({ action: "signal", to: pid, signal: { sdp: offer } });
+                        } catch (err) {}
+                    }
+                }
+                // Henüz peer kurulmamış oyuncular için oluştur
+                if (roomState && roomState.players) {
                     roomState.players.forEach(p => {
-                        if (p.id !== myId) createPeer(p.id, voiceIAmInitiator(p.id));
+                        if (p.id !== myId && !peers[p.id]) createPeer(p.id, true);
                     });
                 }
             } catch (e) {
-                toast("Mikrofon izni reddedildi!");
+                console.error("Mic error:", e);
+                toast("⚠️ Mikrofon izni alınamadı!");
             }
         } else {
             const track = localAudioStream.getAudioTracks()[0];
-            track.enabled = !track.enabled;
-            btn.classList.toggle("active", track.enabled);
-            btn.classList.toggle("muted", !track.enabled);
-            toast(track.enabled ? "Mikrofon açıldı." : "Mikrofon susturuldu.");
+            if (track) {
+                track.enabled = !track.enabled;
+                btn.classList.toggle("active", track.enabled);
+                btn.classList.toggle("muted", !track.enabled);
+                toast(track.enabled ? "🎤 Mikrofon açıldı." : "🔇 Mikrofon kapatıldı.");
+            }
         }
     };
 }
@@ -4276,7 +4370,6 @@ function createPeer(peerId, isInitiator) {
     const pc = new RTCPeerConnection({
         iceServers: [
             { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
-            // ücretsiz topluluk TURN servisi — mobil veri ↔ ev ağı bağlantıları için şart
             { urls: ["turn:openrelay.metered.ca:80", "turn:openrelay.metered.ca:443"], username: "openrelayproject", credential: "openrelayproject" },
             { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
         ],
@@ -4298,10 +4391,11 @@ function createPeer(peerId, isInitiator) {
             audio = document.createElement("audio");
             audio.id = "audio_" + peerId;
             audio.autoplay = true;
+            audio.setAttribute("playsinline", "true");
             document.body.appendChild(audio);
         }
         audio.srcObject = e.streams[0];
-        tryPlayAudio(a);
+        tryPlayAudio(audio);
         if (!audio._pcVoiceTimer) audio._pcVoiceTimer = setInterval(() => pcSetVoiceVolume(audio, peerId), 150);
     };
 
@@ -4309,7 +4403,7 @@ function createPeer(peerId, isInitiator) {
         pc.createOffer().then(offer => {
             pc.setLocalDescription(offer);
             wsSend({ action: "signal", to: peerId, signal: { sdp: offer } });
-        });
+        }).catch(() => {});
     }
     return pc;
 }
