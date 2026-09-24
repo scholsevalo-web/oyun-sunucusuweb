@@ -2857,7 +2857,7 @@ function startFps(net) {
             commit(); return;
         }
         if (S.phase === "freeze") {
-            // süre sunucudan gelir ("cd" relay'i); 0'a inince raund başlat
+            // süre frame loop'ta azaltılır (host); 0'a inince raund başlat
             if (S.timeLeft <= 0) { S.phase = "live"; S.timeLeft = ROUND_TIME; commit(); }
         } else if (S.phase === "live") {
             if (alive[0] === 0 || alive[1] === 0) endRound(alive[0] === alive[1] ? null : (alive[0] > 0 ? 0 : 1));
@@ -3479,14 +3479,24 @@ function startFps(net) {
     }
 
     // ---------- ANA DÖNGÜ ----------
-    let last = performance.now(), lastSend = 0;
+    let last = performance.now(), lastSend = 0, lastCdRelay = 0;
     let onCountdownImpl = null;
     function frame(now) {
         if (destroyed) return;
         raf = requestAnimationFrame(frame);
         const dt = Math.min(0.05, (now - last) / 1000); last = now;
-        // freeze süresi sunucudan gelir; lokal saymayı durdur
-        if (S.phase !== "over" && S.phase !== "vote" && S.phase !== "freeze") S.timeLeft = Math.max(0, S.timeLeft - dt);
+        // Freeze fazında: host kendi lokal sayacını sayar ve herkese relay eder
+        // (sunucu sayacına bağımlılık yok — heartbeat gecikmesi sorunu çözüldü)
+        if (S.phase === "freeze" && net.isHost()) {
+            S.timeLeft = Math.max(0, S.timeLeft - dt);
+            if (now - lastCdRelay > 250) {
+                lastCdRelay = now;
+                const t = Math.round(S.timeLeft * 10) / 10;
+                net.send({ k: "cd", t });
+            }
+        } else if (S.phase !== "over" && S.phase !== "vote" && S.phase !== "freeze") {
+            S.timeLeft = Math.max(0, S.timeLeft - dt);
+        }
         hostTick();
         updateSelf(dt);
         updateWeapon(dt, now);
@@ -3513,21 +3523,14 @@ function startFps(net) {
     });
     on(window, "pagehide", () => wsSend({ action: "heartbeat", open: false }));
 
-    // host: sunucudan gelen geri sayımı herkese relay eder (herkeste birebir aynı)
+    // host: freeze sayacı artık frame loop tarafından yönetiliyor (sunucu bağımsız)
+    // onCountdownImpl sadece non-host istemcilerde yedek senkronizasyon olarak kalıyor
     let lastCdSent = -1;
     onCountdownImpl = (m) => {
-        if (!net.isHost()) return;
-        if (S.phase !== "freeze") return;
-        // Sunucudan gelen değeri FREEZE_TIME ile sınırla (eski/sıfırlanmış sayaçtan gelen büyük değerleri engelle)
-        const clamped = Math.min(m.timeLeft, FREEZE_TIME);
-        const t = Math.round(clamped * 10) / 10;
-        // Host'un kendi S.timeLeft'ini sunucuyla senkronize et
-        S.timeLeft = clamped;
-        if (t !== lastCdSent) {
-            lastCdSent = t;
-            net.send({ k: "cd", t });
-        }
-        if (m.timeLeft <= 0) { S.phase = "live"; S.timeLeft = ROUND_TIME; commit(); }
+        // Host artık kendi frame loop'unu kullanıyor, sunucu mesajını yok say
+        if (net.isHost()) return;
+        // Non-host: sadece sunucudan doğrudan gelen değerleri S'e yansıt
+        // (cd relay zaten case "cd" ile işleniyor, bu sadece WS countdown için)
     };
 
     return {
