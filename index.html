@@ -287,6 +287,24 @@ input:focus { outline: none; border-color: #38bdf8; }
     #chatContainer { width: calc(100vw - 20px); bottom: 5px; left: 10px; }
     #chatMessages { max-height: 100px; }
 }
+/* Dokunmatik ekranda (mobil) chat kutusu joystickin önüne geçmesin:
+   sol-alt köşe yerine sol-üst köşeye taşı, yüksekliği kısalt */
+@media (pointer: coarse) {
+    #chatContainer {
+        bottom: auto;
+        top: 54px;          /* skor pilinin altında */
+        left: 6px;
+        width: 230px;
+        max-width: calc(100vw - 12px);
+        z-index: 50;        /* joystick (z-index:40) üstünde ama HUD altında */
+        pointer-events: auto;
+    }
+    #chatMessages { max-height: 70px; font-size: 11px; padding: 6px; }
+    #chatControls { padding: 5px 6px; gap: 4px; }
+    #chatControls input { font-size: 12px; padding: 5px 6px; }
+    .btn-chat { padding: 5px 8px; font-size: 12px; }
+}
+
 </style>
 </head>
 <body>
@@ -515,7 +533,12 @@ input:focus { outline: none; border-color: #38bdf8; }
 //  beforeunload ile "sayfadan ayrıl" onayı + yakalanabilir kısayolları blokla
 // ===================================================================
 document.addEventListener("keydown", (e) => {
+    // Ctrl+W her zaman engellenir (sekmeyi kapatma)
     if ((e.ctrlKey || e.metaKey) && (e.key === "w" || e.key === "W" || e.code === "KeyW")) {
+        e.preventDefault(); e.stopPropagation(); return;
+    }
+    // Oyun aktifken diğer tüm Ctrl/Meta kısayollarını engelle (Ctrl sadece eğilme içindir)
+    if ((e.ctrlKey || e.metaKey) && currentGame) {
         e.preventDefault();
         e.stopPropagation();
     }
@@ -2193,10 +2216,14 @@ const FPS_MAPS = [
         sunC: 0xffb070, sunI: 1.0, sunP: [-30, 42, 18],
         floor: 0x5c5f66, wall: 0x8f8577, crate: 0x7a4f35, deco: 0x46433d,
         spawns: [
-            [[-11, -17], [-9, -17], [9, -17], [11, -17], [0, -8]],
-            [[11, 17], [9, 17], [-9, 17], [-11, 17], [0, 8]],
+            [[-10, -25], [-3, -25], [3, -25], [10, -25], [0, -20]],
+            [[10, 25], [3, 25], [-3, 25], [-10, 25], [0, 20]],
         ],
         build(b) {
+            // Sınır duvarları (haritadan çıkışı engelle)
+            b.wall(0, -33, 66, 1, 6); b.wall(0, 33, 66, 1, 6);
+            b.wall(-33, 0, 1, 66, 6); b.wall(33, 0, 1, 66, 6);
+            // Bina blokları
             b.wall(-18, -17, 12, 10, 8); b.wall(18, -17, 12, 10, 8);
             b.wall(-18, 17, 12, 10, 8); b.wall(18, 17, 12, 10, 8);
             b.wall(0, -27, 16, 8, 7); b.wall(0, 27, 16, 8, 7);
@@ -2838,7 +2865,7 @@ function startFps(net) {
         } else if (S.phase === "roundend" && S.timeLeft <= 0) {
             if (S.scores[0] >= WIN_ROUNDS || S.scores[1] >= WIN_ROUNDS) {
                 S.phase = "over"; S.matchWinner = S.scores[0] > S.scores[1] ? 0 : 1; commit();
-            } else { S.round++; S.phase = "freeze"; S.timeLeft = FREEZE_TIME; S.roundWinner = null; commit(); }
+            } else { S.round++; S.phase = "freeze"; S.timeLeft = FREEZE_TIME; S.roundWinner = null; lastCdSent = -1; wsSend({ action: "fps_new_round", round: S.round }); commit(); }
         }
         if (performance.now() - lastBroadcast > 1000) commit();
     }
@@ -3056,7 +3083,8 @@ function startFps(net) {
     }
     applyMobSet();
     function togglePause(force) {
-        const open = force !== undefined ? force : !pMenu;
+        const isOpen = pMenu && pMenu.style.display === "flex";
+        const open = force !== undefined ? force : !isOpen;
         if (open) {
             if (!pMenu) { pMenu = document.createElement("div"); pMenu.id = "fpsPause"; document.body.appendChild(pMenu); }
             renderPause();
@@ -3101,7 +3129,8 @@ function startFps(net) {
                     <button class="${MOB_SET.joyR ? "" : "on"}" onclick="fpsSet('joySide','L')">◉ Joystick Sol</button>
                     <button class="${MOB_SET.joyR ? "on" : ""}" onclick="fpsSet('joySide','R')">◉ Joystick Sağ</button>
                 </div>
-                <button class="btn btn-join" style="margin-top:18px" onclick="fpsPauseNav('resume')">▶ Devam Et</button>`;
+                <button class="btn btn-ghost" style="margin-top:8px" onclick="fpsPauseNav('main')">← Geri</button>
+                <button class="btn btn-join" style="margin-top:10px" onclick="fpsPauseNav('resume')">▶ Devam Et</button>`;
         }
         pMenu.innerHTML = `<div class="pbox">
             <div class="routeVoteTitle">⏸ OYUN MENÜSÜ</div>
@@ -3125,10 +3154,11 @@ function startFps(net) {
         renderPause();
     };
     window.fpsPauseNav = function (where) {
-        if (where === "resume") { togglePause(false); return; }
+        if (where === "resume") { pTab = "main"; togglePause(false); return; }
         if (where === "settings") { pTab = "settings"; renderPause(); return; }
+        if (where === "main") { pTab = "main"; renderPause(); return; }
         if (where === "fullscreen") { toggleFullscreen(); return; }
-        if (where === "lobby") { togglePause(false); net.returnLobby(); return; }
+        if (where === "lobby") { pTab = "main"; togglePause(false); net.returnLobby(); return; }
     };
     on($("fMenuBtn"), "click", () => togglePause());
 
@@ -3487,12 +3517,17 @@ function startFps(net) {
     let lastCdSent = -1;
     onCountdownImpl = (m) => {
         if (!net.isHost()) return;
-        const t = Math.round(m.timeLeft * 10) / 10;
+        if (S.phase !== "freeze") return;
+        // Sunucudan gelen değeri FREEZE_TIME ile sınırla (eski/sıfırlanmış sayaçtan gelen büyük değerleri engelle)
+        const clamped = Math.min(m.timeLeft, FREEZE_TIME);
+        const t = Math.round(clamped * 10) / 10;
+        // Host'un kendi S.timeLeft'ini sunucuyla senkronize et
+        S.timeLeft = clamped;
         if (t !== lastCdSent) {
             lastCdSent = t;
             net.send({ k: "cd", t });
         }
-        if (m.timeLeft <= 0 && S.phase === "freeze") { S.phase = "live"; S.timeLeft = ROUND_TIME; commit(); }
+        if (m.timeLeft <= 0) { S.phase = "live"; S.timeLeft = ROUND_TIME; commit(); }
     };
 
     return {
