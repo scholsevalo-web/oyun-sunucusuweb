@@ -184,7 +184,7 @@ input:focus { outline: none; border-color: #38bdf8; }
 
 /* hapishane HUD */
 #pHudTop { position: absolute; top: 14px; left: 14px; display: flex; gap: 10px; }
-#pKeys { color: #facc15; }
+#pMission { color: #facc15; }
 #pParty { position: absolute; top: 14px; right: 14px; pointer-events: none; text-align: right; }
 #pParty div { font-size: 13px; font-weight: 700; margin: 0 0 4px auto; background: rgba(15,23,42,0.78); padding: 4px 10px; border-radius: 6px; width: fit-content; }
 #prisonMini { position: absolute; right: 14px; bottom: 14px; border: 1px solid #475569; border-radius: 6px; background: rgba(2,6,23,0.7); }
@@ -451,7 +451,7 @@ input:focus { outline: none; border-color: #38bdf8; }
         <div id="pRedVignette" style="position:absolute;inset:0;background:radial-gradient(circle, rgba(239,68,68,0) 40%, rgba(239,68,68,0.7) 100%);opacity:0;pointer-events:none;transition:opacity 0.25s;z-index:18;"></div>
         <div id="p3dModeBadge" class="pill" style="position:absolute;top:14px;right:14px;color:#38bdf8;font-weight:bold;z-index:20;">🎮 3D ÜÇÜNCÜ ŞAHIS (A Way Out Tarzı)</div>
         <div id="pHudTop" style="z-index:20;">
-            <div class="pill" id="pKeys">🔑 0/3</div>
+            <div class="pill" id="pMission" style="color:#facc15;">🎯 Görev</div>
             <div class="pill" id="pTime">00:00</div>
             <div class="pill" id="pCaught">🚨 0</div>
             <div class="pill" id="pCheckpoint" style="color:#4ade80;">📍 Başlangıç Hücreleri</div>
@@ -987,14 +987,14 @@ function fmtTime(sec) {
 const PRISON_MAP = [
     "########################################",
     "#...#...#...#...#####..................#",
-    "#.1.#.2.#.3.#.4.#####...............k..#",
+    "#.1.#.2.#.3.#.4.#####..................#",
     "#...#...#...#...#####..................#",
     "##c###c###c###c##############..#########",
     "#......................................#",
     "#......................................#",
     "######..############..############..####",
     "#............###...........###.........#",
-    "#.k..#.......###........a..###...#.....#",
+    "#....#.......###........a..###...#.....#",
     "#........#...###..#........###......#..#",
     "#............###...........###.........#",
     "###..###############################..##",
@@ -1003,7 +1003,7 @@ const PRISON_MAP = [
     "######..---------------+AA----------XX---",
     "#..............###.............##......#",
     "#..............###.............##......#",
-    "#...##.........###....#........##......#",
+    "#...##.........###....#.......a##......#",
     "#..............###....#........##......#",
     "#.........##...###........#....##.EEEE.#",
     "#..............###..........k..##.EEEE.#",
@@ -1020,7 +1020,6 @@ const PRISON_GUARDS = [
 function startPrison(net) {
     const T = 32, R = 9;
     const MW = PRISON_MAP[0].length, MH = PRISON_MAP.length;
-    const KEYS_NEEDED = 3;
     const VIS = 6.5 * T, CONE = 0.65, HEAR = 4.5 * T;
     const WALK = 110, RUN = 175, CROUCH = 60, GUARD_PATROL = 60, GUARD_CHASE = 125;
     const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -1045,7 +1044,7 @@ function startPrison(net) {
     const solid = new Uint8Array(MW * MH);
     const exitZone = new Uint8Array(MW * MH);
     const cellBars = new Uint8Array(MW * MH);
-    const spawns = [], keys = [], doors = [], plates = [];
+    const spawns = [], doors = [], plates = [];
     const doorAt = {};
 
     for (let y = 0; y < MH; y++) {
@@ -1056,8 +1055,6 @@ function startPrison(net) {
                 if (y === 4 && (x < 16)) cellBars[i] = 1; // Hücrelerin koridor cephesi demir parmaklık
             } else if (ch >= "1" && ch <= "4") {
                 spawns[Number(ch) - 1] = { x, y };
-            } else if (ch === "k") {
-                keys.push({ id: "k" + keys.length, x, y, got: false });
             } else if (ch === "c" || ch === "A" || ch === "X") {
                 const d = { id: "d" + doors.length, kind: ch === "c" ? "cell" : ch === "A" ? "plate" : "gate", grp: ch, x, y, open: false, slideOffset: 0 };
                 doors.push(d); doorAt[i] = d;
@@ -1120,7 +1117,7 @@ function startPrison(net) {
         others[id] = { id, x, y, tx: x, ty: y, rot: 0, sprint: false, crouch: false, escaped: false, safeUntil: 0, animTime: 0 };
     });
 
-    let keysGot = 0, totalCaught = 0;
+    let totalCaught = 0;
     const t0 = performance.now();
     let endTime = 0;
 
@@ -1267,6 +1264,11 @@ function startPrison(net) {
             pl.depress = THREE.MathUtils.lerp(pl.depress, pressed ? 0.16 : 0, dt * 10);
             if (pressed) grpUntil[pl.grp] = now + 1200;
         }
+        // plaka kapısı açıldıysa görev 2 -> 3
+        if (mission.stage === 2) {
+            const pd = doors.find((q) => q.kind === "plate");
+            if (pd && pd.open) { setStage(3); net.send({ k: "mission", s: 3 }); }
+        }
         for (const d of doors) {
             if (d.kind === "plate") {
                 let open = alone || now < grpUntil[d.grp];
@@ -1277,7 +1279,7 @@ function startPrison(net) {
                 }
                 d.open = open;
             } else if (d.kind === "gate") {
-                d.open = keysGot >= KEYS_NEEDED;
+                d.open = mission.stage >= 4;   // son görev: çıkış kapısı açıldı
             }
             d.slideOffset = THREE.MathUtils.lerp(d.slideOffset, d.open ? (d.kind === "cell" ? 2.5 : 4.6) : 0, dt * 5);
         }
@@ -1354,7 +1356,7 @@ function startPrison(net) {
     function updateInteract(dt) {
         const bar = $("pProgress"), prompt = $("pPrompt");
         let target = null;
-        if (!me.escaped) {
+        if (!me.escaped && mission.stage === 1) {
             for (const d of doors) {
                 if (d.kind === "cell" && !d.open && Math.hypot(me.x - (d.x * T + T / 2), me.y - (d.y * T + T / 2)) < T * 2.2) { target = d; break; }
             }
@@ -1373,7 +1375,9 @@ function startPrison(net) {
                     net.send({ k: "door", id: target.id });
                     pick.t = 0; me.picking = false;
                     tone(300, 0.2, "square", 0.1);
-                    pToast("Kilit açıldı! Sessiz ol, gardiyanlar dinliyor…");
+                    setStage(2);
+                    net.send({ k: "mission", s: 2 });
+                    pToast("Kilit açıldı! Şimdi plaka kapısına — ikiniz plakalara basın.");
                 }
             } else { pick.t = 0; bar.style.display = "none"; }
         } else { prompt.style.display = "none"; bar.style.display = "none"; pick.t = 0; }
@@ -1467,24 +1471,64 @@ function startPrison(net) {
         }
     }
 
-    function updateKeysHud() { $("pKeys").textContent = "🔑 " + keysGot + "/" + KEYS_NEEDED; }
-    function takeKey(id, byId) {
-        const k = keys.find((q) => q.id === id);
-        if (!k || k.got) return;
-        k.got = true; keysGot++;
-        updateKeysHud();
-        tone(880, 0.15, "square", 0.1);
-        pToast((byId === myId ? "Sen" : (names[byId] || "Biri")) + " bir anahtar aldı!" + (keysGot >= KEYS_NEEDED ? " Çıkış kapısı AÇILDI — hepiniz çıkışa!" : ""));
+    // ---------- A WAY OUT GÖREV ZİNCİRİ ----------
+    // 1: hücre kilidi (E) -> 2: plaka kapısı (co-op) -> 3: jeneratör kararı -> 4: çıkış kapısını kır (E basılı) -> kaç
+    const mission = {
+        stage: 1,
+        texts: [
+            "Hücre kilidini aç (E basılı tut)",
+            "İkiniz plakalara basın — kapı açılır",
+            "Jeneratör merkezine git (şalter / alarm kararı)",
+            "Çıkış kapısını kır (E basılı tut) ve KAÇ!",
+        ],
+    };
+    function setStage(n) {
+        if (n <= mission.stage) return;
+        mission.stage = n;
+        updateMissionHud();
+        tone(660, 0.25, "triangle", 0.15, 880);
     }
-    function checkKeyPickup() {
-        if (me.escaped) return;
-        for (const k of keys) {
-            if (!k.got && Math.hypot(me.x - (k.x * T + T / 2), me.y - (k.y * T + T / 2)) < 20) {
-                takeKey(k.id, myId);
-                net.send({ k: "key", id: k.id });
+    function updateMissionHud() { $("pMission").textContent = "🎯 " + mission.texts[Math.min(mission.stage, 4) - 1]; }
+
+    // Çıkış kapısı kırma: iki oyuncu da E'ye basılı tutarsa 5 sn'de kırılır (A Way Out tarzı co-op eylem)
+    const gateBreak = { t: 0, need: 5, both: false };
+    function updateGateBreak(dt) {
+        const gate = doors.find((q) => q.kind === "gate");
+        if (!gate || gate.open || me.escaped) { if (gate) gate.open = gate.open || mission.stage >= 4; return; }
+        const cx = gate.x * T + T / 2, cy = gate.y * T + T / 2;
+        const near = Math.hypot(me.x - cx, me.y - cy) < T * 2;
+        if (!near || mission.stage < 4) { gateBreak.t = 0; return; }  // önce jeneratör kararı
+        const solo = net.state().players.length < 2;   // partner koparsa tek de kırılabilsin
+        let partnerNear = false;
+        for (const id in others) {
+            const o = others[id];
+            if (!o.escaped && Math.hypot(o.x - cx, o.y - cy) < T * 2.5) partnerNear = true;
+        }
+        gateBreak.both = near && (partnerNear || solo);
+        if (near && gateBreak.both && keysDown.KeyE) {
+            gateBreak.t += dt;
+            const bar = $("pProgress"), prompt = $("pPrompt");
+            prompt.style.display = "block";
+            prompt.textContent = gateBreak.both ? "İkiniz de çekin! Kapı kırılıyor…" : "KAPI çok sağlam — ikiniz birden E'ye basın!";
+            bar.style.display = "block";
+            bar.firstElementChild.style.width = Math.min(100, gateBreak.t / gateBreak.need * 100) + "%";
+            if (gateBreak.t >= gateBreak.need) {
+                gate.open = true;
+                setStage(4);
+                mission.texts[3] = "KAÇ! Yeşil çıkış bölgesine git!";
+                updateMissionHud();
+                net.send({ k: "gate", o: 1 });
+                tone(180, 0.5, "sawtooth", 0.3, 60);
+                noiseBurst(0.7, 0.35, 700);
+                pToast("💥 ÇIKIŞ KAPISI KIRILDI — KAÇIN!");
+                gateBreak.t = 0;
             }
+        } else {
+            gateBreak.t = 0;
         }
     }
+
+    function updateKeysHud() { updateMissionHud(); } // geriye dönük uyumluluk
     function tryEscape() {
         if (me.escaped) return;
         const i = tileIdx(me.x, me.y);
@@ -1616,20 +1660,20 @@ function startPrison(net) {
         if (activeCoopChoice) return;
         const tx = Math.floor(me.x / T), ty = Math.floor(me.y / T);
 
-        // Branch 1: Koridor Ayrımı & Havalandırma Girişi
-        if (!branchTriggered.b1 && tx >= 5 && tx <= 9 && ty >= 6 && ty <= 8) {
+        // Branch 1: Koridor Ayrımı & Havalandırma Girişi (hücreden çıkınca)
+        if (!branchTriggered.b1 && mission.stage >= 2 && tx >= 5 && tx <= 9 && ty >= 6 && ty <= 8) {
             branchTriggered.b1 = true;
             net.send({ k: "branch_open", b: 1 });
             triggerBranch1();
         }
-        // Branch 2: Güvenlik Şalteri ve Jeneratör Merkezi
-        else if (!branchTriggered.b2 && tx >= 19 && tx <= 23 && ty >= 12 && ty <= 15) {
+        // Branch 2: Güvenlik Şalteri ve Jeneratör Merkezi (plaka kapısından geçince)
+        else if (!branchTriggered.b2 && mission.stage >= 3 && tx >= 19 && tx <= 23 && ty >= 12 && ty <= 15) {
             branchTriggered.b2 = true;
             net.send({ k: "branch_open", b: 2 });
             triggerBranch2();
         }
-        // Branch 3: Çıkış Kapısı
-        else if (!branchTriggered.b3 && keysGot >= KEYS_NEEDED && tx >= 32 && ty >= 19) {
+        // Branch 3: Çıkış Bölgesi (kapı kırılınca final karar halkası: Plan A / Plan C)
+        else if (!branchTriggered.b3 && mission.stage >= 4 && tx >= 32 && ty >= 19) {
             branchTriggered.b3 = true;
             net.send({ k: "branch_open", b: 3 });
             triggerBranch3();
@@ -1665,11 +1709,15 @@ function startPrison(net) {
                 pToast("ELEKTRİKLER KESİLDİ! Acil durum yeşil ışıkları aktif.");
                 if (ambLight) ambLight.intensity = 0.15;
                 tone(140, 0.5, "sine", 0.2);
+                setStage(4); net.send({ k: "mission", s: 4 });
+                pToast("Çıkış kapısına git — İKİNİZ birden E'ye basılı tutup kapıyı kırın!");
             },
             onRight: () => {
                 pToast("YANGIN ALARMI ÇALIYOR! Gardiyanlar panikle avluya koşuyor!");
                 guards.forEach(gd => { gd.tx = 36 * T; gd.ty = 3 * T; gd.state = 2; });
                 tone(680, 0.6, "sawtooth", 0.2, 380);
+                setStage(4); net.send({ k: "mission", s: 4 });
+                pToast("Çıkış kapısına git — İKİNİZ birden E'ye basılı tutup kapıyı kırın!");
             }
         });
     }
@@ -1700,7 +1748,7 @@ function startPrison(net) {
     const p3dGuardObjs = [];
     const p3dDoorObjs = [];
     const p3dPlateObjs = [];
-    const p3dKeyObjs = [];
+    const p3dGateMesh = { mesh: null, baseY: 0 };   // çıkış kapısı (görev 4)
 
     // Yardımcı: 3D Karakter Oluşturucu
     function create3DCharacter(colorHex, isGuard) {
@@ -1898,15 +1946,7 @@ function startPrison(net) {
             p3dPlateObjs.push({ pl, mesh: pm });
         });
 
-        // 3D Anahtarlar
-        const keyGeo = new THREE.OctahedronGeometry(0.32);
-        const keyMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xfacc15, emissiveIntensity: 0.6 });
-        keys.forEach(k => {
-            const km = new THREE.Mesh(keyGeo, keyMat);
-            km.position.set(k.x * 3 + 1.5, 0.65, k.y * 3 + 1.5);
-            p3dScene.add(km);
-            p3dKeyObjs.push({ k, mesh: km });
-        });
+        // (Anahtar mesh'leri kaldırıldı — A Way Out görev zinciri)
 
         // 3D Oyuncu Modeli
         p3dPlayerObj = create3DCharacter(colorOf(myId), false);
@@ -2004,16 +2044,6 @@ function startPrison(net) {
             item.mesh.position.y = 0.08 - item.pl.depress;
         });
 
-        // Anahtarlar
-        p3dKeyObjs.forEach(item => {
-            if (item.k.got) {
-                item.mesh.visible = false;
-            } else {
-                item.mesh.rotation.y += dt * 3.2;
-                item.mesh.position.y = 0.65 + Math.sin(now * 0.005) * 0.15;
-            }
-        });
-
         // Gardiyanlar, Projektör Renkleri ve Üçgen Şüphe Göstergeleri
         p3dGuardObjs.forEach(item => {
             const gx = (item.gd.x / T) * 3;
@@ -2067,7 +2097,6 @@ function startPrison(net) {
             mg.fillStyle = d.open ? "#22c55e" : (d.kind === "cell" ? "#9ca3af" : d.kind === "plate" ? "#a855f7" : "#ef4444");
             mg.fillRect(d.x * 4, d.y * 4, 4, 4);
         }
-        for (const k of keys) if (!k.got) { mg.fillStyle = "#facc15"; mg.fillRect(k.x * 4 - 1, k.y * 4 - 1, 6, 6); }
         for (const id in others) { mg.fillStyle = colorOf(id); mg.fillRect(others[id].x / T * 4 - 2, others[id].y / T * 4 - 2, 5, 5); }
         mg.fillStyle = "#fff"; mg.fillRect(me.x / T * 4 - 3, me.y / T * 4 - 3, 7, 7);
         mg.fillStyle = colorOf(myId); mg.fillRect(me.x / T * 4 - 2, me.y / T * 4 - 2, 5, 5);
@@ -2119,7 +2148,7 @@ function startPrison(net) {
             updateDoors(now, dt);
             updateInteract(dt);
             updateMe(dt);
-            checkKeyPickup();
+            updateGateBreak(dt);
             tryEscape();
             for (const id in others) {
                 const o = others[id], k = Math.min(1, dt * 14);
@@ -2149,7 +2178,7 @@ function startPrison(net) {
         updateHud(dt);
     }
     raf = requestAnimationFrame(frame);
-    updateKeysHud();
+    updateMissionHud();
     pToast("A Way Out Tarzı 3D Kaçış Başladı! Hücrenin önüne git, E ile kilidi aç.");
 
     return {
@@ -2174,7 +2203,16 @@ function startPrison(net) {
                         gd.suspicion = a[4] !== undefined ? a[4] : gd.suspicion;
                     });
                     break;
-                case "key": takeKey(d.id, from); break;
+                case "mission": setStage(d.s); break;
+                case "gate": {
+                    const gate = doors.find((q) => q.kind === "gate");
+                    if (gate) gate.open = true;
+                    setStage(4);
+                    mission.texts[3] = "KAÇ! Yeşil çıkış bölgesine git!";
+                    updateMissionHud();
+                    pToast("💥 Partnerin kapıyı kırdı — KAÇIN!");
+                    break;
+                }
                 case "door": { const dr = doors.find((q) => q.id === d.id); if (dr) dr.open = true; break; }
                 case "checkpoint_reset": {
                     currentCp = d.cp || 0;
