@@ -334,6 +334,16 @@ input:focus { outline: none; border-color: #38bdf8; }
 .btn-mic { background: #475569; font-size: 15px; }
 .btn-mic.active { background: #22c55e; }
 .btn-mic.muted { background: #ef4444; }
+.btn-mic.talking { box-shadow: 0 0 0 2px #fff, 0 0 12px 3px #22c55e; }
+.btn-mic.talking::after { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #22ff44; margin-left: 5px; box-shadow: 0 0 8px #22ff44; }
+.player-list .talkDot { display: none; width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; margin-left: 8px; }
+.player-list .talkDot.on { display: inline-block; animation: talkPulse 0.7s infinite alternate; }
+@keyframes talkPulse { from { opacity: 0.5; } to { opacity: 1; } }
+#fSlots { position: absolute; right: 14px; bottom: 46px; display: flex; gap: 6px; z-index: 15; pointer-events: none; }
+.fSlot { min-width: 34px; padding: 4px 8px; border-radius: 8px; background: rgba(15,23,42,0.75); border: 1.5px solid #475569; color: #94a3b8; font-size: 12px; font-weight: 700; text-align: center; }
+.fSlot small { display: block; font-size: 9px; font-weight: 600; color: #64748b; }
+.fSlot.owned { color: #e2e8f0; border-color: #64748b; }
+.fSlot.sel { color: #facc15; border-color: #facc15; background: rgba(250,204,21,0.12); box-shadow: 0 0 10px rgba(250,204,21,0.25); }
 
 @media (max-width: 600px) {
     #chatContainer { width: calc(100vw - 20px); bottom: 5px; left: 10px; }
@@ -501,10 +511,12 @@ input:focus { outline: none; border-color: #38bdf8; }
                 <button id="fMobFire">🔥</button>
                 <button id="fMobAds">🎯</button>
                 <button id="fMobReload">🔄</button>
+                <button id="fMobInspect">🔎</button>
                 <button id="fMobMenu">🔫 SİLAHLAR</button>
             </div>
         </div>
         <div id="fSpec"></div>
+        <div id="fSlots"></div>
         <div id="fHp" class="pill"><span id="fHpText">100</span><div id="fHpBar"><div></div></div></div>
         <div id="fAmmo" class="pill"><b id="fAmmoText">30</b><small id="fWeaponText">Tüfek</small></div>
     </div>
@@ -822,10 +834,15 @@ function renderLobby(s) {
     list.innerHTML = "";
     s.players.forEach((p) => {
         const li = document.createElement("li");
+        li.dataset.pid = p.id;
         if (p.id === myId) li.className = "me";
         const nm = document.createElement("span");
         nm.textContent = "👤 " + p.name + (p.id === myId ? " (sen)" : "");
         li.appendChild(nm);
+        // canlı konuşma göstergesi (mikrofon sesi ile yanıp söner)
+        const talkDot = document.createElement("span");
+        talkDot.className = "talkDot";
+        li.appendChild(talkDot);
         const sp = document.createElement("span"); sp.className = "spacer"; li.appendChild(sp);
         if (p.id === s.host) { const b = document.createElement("span"); b.className = "badge"; b.textContent = "👑 Host"; li.appendChild(b); }
         if (s.game === "fps") {
@@ -2309,6 +2326,7 @@ const FPS_WEAPONS = [
     { name: "Keskin Nişancı",icon: "🎯", dmg: 105, head: 240, rate: 1400, mag: 5,   reload: 2.9, auto: false, spread: 0.002, recoil: 0.060, pellets: 1, zoom: 24, len: 0.95, desc: "Tek atış öldürür • sağ tık dürbün • yavaş" },
     { name: "Hafı Makineli", icon: "🧨", dmg: 21,  head: 52,  rate: 82,   mag: 100, reload: 3.6, auto: true,  spread: 0.019, recoil: 0.008, pellets: 1, zoom: 62, len: 0.80, desc: "100'lik şarjör • duvar arkası susturma" },
     { name: "Pompalı",       icon: "💥", dmg: 13,  head: 28,  rate: 850,  mag: 6,   reload: 2.6, auto: false, spread: 0.045, recoil: 0.055, pellets: 8, zoom: 60, len: 0.55, desc: "8 saçma • yakında instankill • yakın mesafe" },
+    { name: "Bıçak",         icon: "🗡️", dmg: 55,  head: 100, rate: 420,  mag: 0,   reload: 0,   auto: true,  spread: 0,     recoil: 0.02,  pellets: 1, zoom: 72, len: 0.10, melee: true, desc: "Sessiz yakın dövüş • 2 vuruşta öldürür" },
 ];
 
 const FPS_MAPS = [
@@ -2319,17 +2337,17 @@ const FPS_MAPS = [
         sunC: 0xfff3db, sunI: 1.35, sunP: [42, 65, 28],
         floor: 0x6e747e, wall: 0x8f98a3, crate: 0xb0793f, deco: 0x4f545e,
         spawns: [
-            [[-27, -8], [-27, -2], [-27, 4], [-27, 10], [-27, -14]],
-            [[27, 8], [27, 2], [27, -4], [27, -10], [27, 14]],
+            [[-28, -19], [-24, -24], [-18, -26], [-28, -13], [-19, -20]],
+            [[28, 19], [24, 24], [18, 26], [28, 13], [19, 20]],
         ],
         build(b) {
             // Sınır koruma duvarları (beton sanayi panelleri)
             b.wall(0, -33, 66, 1.2, 7); b.wall(0, 33, 66, 1.2, 7);
             b.wall(-33, 0, 1.2, 66, 7); b.wall(33, 0, 1.2, 66, 7);
 
-            // Doğu ve Batı Takım Lojistik Hangarları
-            b.hangar(-26, 0, 10, 26, 6.5, 0x3d4b5c);
-            b.hangar(26, 0, 10, 26, 6.5, 0x3d4b5c);
+            // Köşe Takım Lojistik Hangarları (spawn noktalarının arkasında siper)
+            b.hangar(-26, -29, 11, 7, 6.5, 0x3d4b5c);
+            b.hangar(26, 29, 11, 7, 6.5, 0x3d4b5c);
 
             // Gerçekçi Nakliye Konteynerleri (Yivli sac metal dokulu, farklı renklerde & istifli)
             // Orta koridor labirenti
@@ -2377,8 +2395,8 @@ const FPS_MAPS = [
         sunC: 0xff9944, sunI: 1.25, sunP: [-35, 38, 20],
         floor: 0x2e3239, wall: 0x7c6f66, crate: 0x5a3e2c, deco: 0x383533,
         spawns: [
-            [[-10, -25], [-3, -25], [3, -25], [10, -25], [0, -20]],
-            [[10, 25], [3, 25], [-3, 25], [-10, 25], [0, 20]],
+            [[-27, -28], [-23, -23], [-28, -17], [-18, -27], [-24, -28]],
+            [[27, 28], [23, 23], [28, 17], [18, 27], [24, 28]],
         ],
         build(b) {
             // Şehir Sınır Binaları & Duvarlar
@@ -2922,20 +2940,47 @@ function startFps(net) {
             const x = (i * 37) % 128, y = (i * 53) % 128;
             ctx.fillRect(x, y, w, h);
         }
+        // Kullanıcı kumaş rengini garantiye kat (leke Opacity'si düşük)
+        if (window.__fpsCharSkin && window.__fpsCharSkin.cloth) {
+            ctx.globalAlpha = 0.55;
+            ctx.fillStyle = window.__fpsCharSkin.cloth;
+            ctx.fillRect(0, 0, 128, 128);
+            ctx.globalAlpha = 1;
+        }
         const tex = new THREE.CanvasTexture(cv);
         tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(2, 2);
         return tex;
     }
 
+    // ---- KARAKTER ÖZELLEŞTİRME (kamuflaj + ten rengi; localStorage saklanır) ----
+    const CHAR_CLOTH = [
+        { id: "forest", name: "Orman" },
+        { id: "sand", name: "Çöl" },
+        { id: "arctic", name: "Arktik" },
+        { id: "red", name: "Kızıl" },
+        { id: "cyan", name: "Turkuaz" },
+        { id: "gold", name: "Altın" },
+    ];
+    const CHAR_SKINS = ["#e8b98c", "#d29a66", "#a9713f", "#7a4a26", "#53331a", "#39536b", "#6b7280"];
+    let pcSkin = null;
+    try {
+        pcSkin = JSON.parse(localStorage.getItem("fps_char") || "null");
+    } catch (e) {}
+    if (!pcSkin || typeof pcSkin !== "object") pcSkin = { cloth: "forest", skin: 0 };
+    window.__fpsCharSkin = pcSkin;
+    const CLOTH_TINT = { forest: null, sand: "#d9b36c", arctic: "#cfd8e3", red: "#b4453a", cyan: "#2aa3a8", gold: "#d4a72c" };
+
     function buildCharacter(team) {
         const col = TEAM_COL[team];
         const camoTex = makeCamoTex(col, team);
+        if (CLOTH_TINT[pcSkin.cloth]) camoTex.color = new THREE.Color(CLOTH_TINT[pcSkin.cloth]);
+        const skinHex = CHAR_SKINS[pcSkin.skin] || CHAR_SKINS[0];
         const cloth = new THREE.MeshStandardMaterial({ color: 0xffffff, map: camoTex, roughness: 0.82, metalness: 0.08 });
         const vestMat = new THREE.MeshStandardMaterial({ color: team === 0 ? 0x1f2937 : 0x271f20, roughness: 0.7, metalness: 0.15 });
         const darkMat = new THREE.MeshStandardMaterial({ color: 0x11161f, roughness: 0.6, metalness: 0.3 });
         const padMat = new THREE.MeshStandardMaterial({ color: 0x181c24, roughness: 0.45, metalness: 0.4 });
-        const skin = new THREE.MeshStandardMaterial({ color: 0x22262d, roughness: 0.9 }); // taktik balaklava
+        const skin = new THREE.MeshStandardMaterial({ color: skinHex, roughness: 0.9 }); // kişiye özel ten/kafa rengi
         const glassMat = new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.15, metalness: 0.85, emissive: col, emissiveIntensity: 0.35 });
         const metalMat = new THREE.MeshStandardMaterial({ color: 0x3f444e, roughness: 0.3, metalness: 0.8 });
 
@@ -3060,8 +3105,9 @@ function startFps(net) {
         gStock.position.set(0, 0.03, 0.14); gun.add(gStock);
 
         // Silahı sağ kolun ucundaki eldivenin içine yerleştir
+        // NOT: karakterin yüzü yerel +Z'de (vizör z=+0.18) — namlu da ileri (+Z) bakmalı
         gun.position.set(0, -0.56, 0.06);
-        gun.rotation.set(Math.PI / 2 + 0.1, 0, -0.08);
+        gun.rotation.set(-Math.PI / 2 + 0.1, Math.PI, 0.08);
         armR.add(gun);
 
         // İki elle profesyonel taktik tutuş
@@ -3075,6 +3121,10 @@ function startFps(net) {
         sprite.scale.set(1.7, 0.42, 1);
         sprite.position.y = 2.12;
         grp.add(sprite);
+
+        // Modelin yüzü yerel +Z'de; kamera yaw=0 iken ileri -Z olduğu için
+        // grup 180° döndürülür — uzak oyuncular artık gittikleri yöne bakar (geri geri yürümez)
+        grp.rotation.y = Math.PI;
 
         return {
             grp, torso, visor, armL, armR, legL, legR, sprite, lblCv,
@@ -3299,6 +3349,14 @@ function startFps(net) {
             add(B(0.022, 0.025, 0.02), matBody, 0, 0.085, -0.27); // Arpacık
             add(B(0.006, 0.006, 0.005), matRedDot, 0, 0.086, -0.278); // Yeşil/Kırmızı Fosfor
             add(B(0.045, 0.025, 0.025), matBody, 0, 0.082, 0.01); // Gez
+        } else if (name === "Bıçak") {
+            // Taktik Bıçak — kabzeli, parlak çelik namlu, parmak korusu
+            add(C(0.028, 0.15, 10), matGrip, 0, -0.02, 0.02, 0, 0, Math.PI / 2); // Kaydırmaz kabza
+            add(C(0.034, 0.022, 10), matChrome, 0, -0.02, 0.10, 0, 0, Math.PI / 2); // Pommel halkası
+            add(B(0.018, 0.030, 0.025), matChrome, 0, -0.02, -0.065); // Guard
+            add(B(0.012, 0.045, 0.34), matSteel, 0, -0.005, -0.25); // Ana keskin yüz
+            add(B(0.012, 0.020, 0.10), matChrome, 0, 0.020, -0.12); // Ağızlık/çıkıntı
+            add(B(0.012, 0.030, 0.05), matSteel, 0, -0.002, -0.435, 0, 0, 0.5); // Uç (clip point)
         } else {
             // Taktik 12-Gauge Muharebe Pompalı Tüfeği (Combat Shotgun)
             add(B(0.072, 0.10, 0.44), matBody, 0, 0, -0.15); // Gövde Alıcısı
@@ -3318,6 +3376,9 @@ function startFps(net) {
 
         vmGun.traverse((o) => { o.castShadow = false; o.frustumCulled = false; });
         vm.add(vmGun);
+        // Bıçakta namlu alevi ve dürbün overlay'i anlamsız — kapat
+        muzzle.visible = w.name !== "Bıçak";
+        if (w.name === "Bıçak") muzzle.material.opacity = 0;
         return vmGun;
     }
 
@@ -3326,6 +3387,8 @@ function startFps(net) {
         x: 0, y: 0, z: 0, yaw: 0, pitch: 0, recP: 0, vx: 0, vz: 0, vy: 0,
         py: 0, grounded: true, crouch: false, eyeCur: 1.62,
         hp: MAX_HP, alive: true, cur: 0, ammo: FPS_WEAPONS.map((w) => w.mag),
+        own: [true, true, true, false, false, true], // 0-4: silah slotları, 5: bıçak (sabit)
+        inspect: 0, inspectQueued: false,
         reloadEnd: 0, nextShot: 0, lastShotAt: 0, burst: 0, moving: false, sprint: false,
         bobT: 0, bobAmp: 0, stepT: 0, ads: false, adsCur: 0, kick: 0,
     };
@@ -3464,6 +3527,7 @@ function startFps(net) {
         if (tied > 1) chosen = Math.floor(Math.random() * FPS_MAPS.length);
         hostVotes.clear(); voteN = 0;
         S.mapId = chosen; S.phase = "freeze"; S.round = 1; S.timeLeft = FREEZE_TIME; S.roundWinner = null;
+        myVote = null; // yeni raund: oy durumu temiz
         commit();
     }
 
@@ -3477,12 +3541,16 @@ function startFps(net) {
         const dx = -self.x, dz = -self.z;
         self.yaw = Math.atan2(-dx, -dz);
         self.pitch = 0; self.recP = 0; self.vx = 0; self.vz = 0;
-        self.hp = MAX_HP; self.alive = true; self.cur = 0;
+        self.hp = MAX_HP; self.alive = true;
+        self.cur = self.mk >= 0 ? self.mk : 1; // satın alınan market silahıyla başla (yoksa tabanca)
+        self.mk = -1; // yeni raund: market alımı sıfırlanır (slot 1 boşalır)
         self.ammo = FPS_WEAPONS.map((w) => w.mag);
+        self.inspect = 0; self.inspectQueued = false;
         self.reloadEnd = 0; self.burst = 0; self.crouch = false;
         deadSet = new Set(); deathCam = null;
         for (const id in others) reviveChar(others[id]);
         buildGunModel(FPS_WEAPONS[self.cur]);
+        renderSlots();
     }
     function endRound(w) {
         S.phase = "roundend"; S.timeLeft = END_TIME; S.roundWinner = w;
@@ -3553,12 +3621,14 @@ function startFps(net) {
         if (e.code === "Space") e.preventDefault();
         keys[e.code] = true;
         if (e.code === "Escape" && !IS_MOBILE) { togglePause(); return; }
+        if (e.code === "KeyF") startInspect();
         if (inMenu) return;
         if (e.code === "KeyR") startReload();
         if (e.code === "KeyB") toggleWeaponMenu();
         if (e.code === "F11") { e.preventDefault(); toggleFullscreen(); }
-        const dig = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4 }[e.code];
-        if (dig !== undefined) switchWeapon(dig);
+        const dig = { Digit2: 1, Digit3: 5 }[e.code];
+        if (e.code === "Digit1") switchWeapon(self.mk >= 0 ? self.mk : -1); // slot 1 = marketten aldığın silah
+        else if (dig !== undefined) switchWeapon(dig);
     });
     on(window, "keyup", (e) => { keys[e.code] = false; });
     on(window, "blur", () => { for (const k in keys) keys[k] = false; fireHeld = false; });
@@ -3630,6 +3700,7 @@ function startFps(net) {
         hold("fMobAds", () => { self.ads = true; $("fMobAds").classList.add("on"); }, () => { self.ads = false; $("fMobAds").classList.remove("on"); });
         hold("fMobReload", () => startReload());
         hold("fMobMenu", () => toggleWeaponMenu());
+        hold("fMobInspect", () => startInspect());
     }
 
     // ---------- SİLAH MENÜSÜ (B) — SADECE 5 SN HAZIRLIKTA AKTİF ----------
@@ -3662,18 +3733,34 @@ function startFps(net) {
     function renderWeaponMenu() {
         if (!wMenu) return;
         const timeLeftSec = Math.max(0, Math.ceil(S.timeLeft));
+        // Slot düzeni: 1 = market silahın, 2 = tabanca (sabit), 3 = bıçak (sabit)
+        const card = (i, label) => {
+            const w = FPS_WEAPONS[i];
+            return `<div class="wCard ${self.cur === i ? "sel" : ""}" onclick="fpsPickWeapon(${i})">
+                <div class="ico">${w.icon}</div>
+                <h3>${label}. ${w.name}</h3>
+                <small>${w.desc}</small>
+                <div class="ammo">${w.melee ? "Sonsuz kullanım" : "Şarjör: " + w.mag} • Hasar: ${w.dmg}${w.pellets > 1 ? "×" + w.pellets : ""}</div>
+            </div>`;
+        };
+        const slot1 = self.mk >= 0 ? card(self.mk, "1") :
+            `<div class="wCard" style="opacity:0.55"><div class="ico">🛒</div><h3>1. (boş)</h3><small>Alttaki market silahlarından birini seç — 1 numaralı slota girer.</small></div>`;
         wMenu.innerHTML = `<div class="wBox">
             <div class="routeVoteTitle">🛒 CEPHANELİK (HAZIRLIK SÜRESİ: ${timeLeftSec}s)</div>
             <p class="routeVoteSub">Raund başlamadan önce silahını seç! 5 saniye sonra dükkan kapanır.</p>
             <div class="wGrid">
-                ${FPS_WEAPONS.map((w, i) => `
-                <div class="wCard ${self.cur === i ? "sel" : ""}" onclick="fpsPickWeapon(${i})">
-                    <div class="ico">${w.icon}</div>
-                    <h3>${i + 1}. ${w.name}</h3>
-                    <small>${w.desc}</small>
-                    <div class="ammo">Şarjör: ${w.mag} • Hasar: ${w.dmg}${w.pellets > 1 ? "×" + w.pellets : ""}</div>
-                </div>`).join("")}
+                ${slot1}
+                ${card(1, "2")}
+                ${card(5, "3")}
+                ${FPS_WEAPONS.slice(0, 5).map((w, i) => (i === self.mk ? "" :
+                    `<div class="wCard ${self.cur === i ? "sel" : ""}" onclick="fpsPickWeapon(${i})">
+                        <div class="ico">${w.icon}</div>
+                        <h3>🛒 ${w.name}</h3>
+                        <small>${w.desc}</small>
+                        <div class="ammo">Şarjör: ${w.mag} • Hasar: ${w.dmg}${w.pellets > 1 ? "×" + w.pellets : ""}</div>
+                    </div>`)).join("")}
             </div>
+            <p style="font-size:11px;color:#94a3b8;margin:4px 0 0">1 = seçtiğin market silahı • 2 = tabanca (sabit) • 3 = bıçak (sabit) • Rakam tuşları sadece sahip olduğun silahlara geçer</p>
         </div>`;
     }
     window.fpsPickWeapon = function (i) {
@@ -3682,8 +3769,13 @@ function startFps(net) {
             toggleWeaponMenu(false);
             return;
         }
+        // Seçim = o silahın sahipliğini al: market silahı slot 1'e, diğerleri 4-5'e yerleşir
+        self.mk = (i === 1 || i === 5) ? -1 : i; // tabanca/bıçak sabit slotlardadır
+        self.own = [self.mk >= 0, true, false, false, false, true];
+        if (i === 1) self.own[0] = true; // tabanca seçilirse slot 1 = tabanca
         switchWeapon(i);
         toggleWeaponMenu(false);
+        renderSlots();
         toast(`Seçildi: ${FPS_WEAPONS[i].name} ✅`);
     };
 
@@ -3769,8 +3861,22 @@ function startFps(net) {
             body = `
                 <button class="btn btn-join" onclick="fpsPauseNav('resume')">▶ Devam Et</button>
                 <button class="btn btn-join" style="background:#334155" onclick="fpsPauseNav('settings')">⚙ Ayarlar</button>
+                <button class="btn btn-join" style="background:#334155" onclick="fpsPauseNav('character')">🧑 Karakter</button>
                 <button class="btn btn-ghost" onclick="fpsPauseNav('lobby')">🚪 Lobeye Dön</button>
                 <button class="btn btn-ghost" onclick="fpsPauseNav('fullscreen')">⛶ Tam Ekran</button>`;
+        } else if (pTab === "character") {
+            const clothBtns = CHAR_CLOTH.map((c) =>
+                `<button class="${pcSkin.cloth === c.id ? "on" : ""}" onclick="fpsSetChar('cloth','${c.id}')">${c.name}</button>`).join("");
+            const skinBtns = CHAR_SKINS.map((s, i) =>
+                `<button class="sw ${pcSkin.skin === i ? "on" : ""}" onclick="fpsSetChar('skin',${i})" style="background:${s};border:2px solid ${pcSkin.skin === i ? "#facc15" : "#475569"};width:34px;height:34px;border-radius:8px;"></button>`).join("");
+            body = `
+                <div class="sect">🎨 KAMUFLAJ RENGİ</div>
+                <div class="chOpts">${clothBtns}</div>
+                <div class="sect" style="margin-top:12px">🖐 TEN / KASK İÇİ RENGİ</div>
+                <div class="chOpts" style="gap:8px">${skinBtns}</div>
+                <p style="font-size:11px;color:#94a3b8;margin:10px 0 0">Tüm oyuncularda görünür. Takım kamuflajı renk tonunu korur.</p>
+                <button class="btn btn-ghost" style="margin-top:12px" onclick="fpsPauseNav('main')">← Geri</button>
+                <button class="btn btn-join" style="margin-top:10px" onclick="fpsPauseNav('resume')">▶ Devam Et</button>`;
         } else {
             const range = (id, label, val, min, max, step, unit) =>
                 `<div class="setRow"><label>${label}: <b>${val}${unit || ""}</b></label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;
@@ -3818,9 +3924,24 @@ function startFps(net) {
         if (what === "joySide") { MOB_SET.joyR = val === "R"; saveMobSet(); applyMobSet(); }
         renderPause();
     };
+    window.fpsSetChar = function (what, val) {
+        if (what === "cloth") pcSkin.cloth = val;
+        if (what === "skin") pcSkin.skin = val;
+        try { localStorage.setItem("fps_char", JSON.stringify(pcSkin)); } catch (e) {}
+        window.__fpsCharSkin = pcSkin;
+        // Görünümü anında güncelle: tüm karakterleri yeni renklerle yeniden inşa et
+        for (const id in others) {
+            scene.remove(others[id].ch.grp);
+            others[id].ch = buildCharacter(others[id].team);
+            scene.add(others[id].ch.grp);
+            others[id].ch.drawLabel(others[id].name, TEAM_LIGHT[others[id].team] || "#fff");
+        }
+        renderPause();
+    };
     window.fpsPauseNav = function (where) {
         if (where === "resume") { pTab = "main"; togglePause(false); return; }
         if (where === "settings") { pTab = "settings"; renderPause(); return; }
+        if (where === "character") { pTab = "character"; renderPause(); return; }
         if (where === "main") { pTab = "main"; renderPause(); return; }
         if (where === "fullscreen") { toggleFullscreen(); return; }
         if (where === "lobby") { pTab = "main"; togglePause(false); net.returnLobby(); return; }
@@ -3829,17 +3950,42 @@ function startFps(net) {
 
     function startReload() {
         const w = FPS_WEAPONS[self.cur];
-        if (!self.alive || self.reloadEnd || self.ammo[self.cur] >= w.mag) return;
+        if (!self.alive || w.melee || w.mag <= 0 || self.reloadEnd || self.ammo[self.cur] >= w.mag) return;
         self.reloadEnd = performance.now() + w.reload * 1000;
         tone(300, 0.08, "square", 0.08);
         later(() => tone(520, 0.07, "square", 0.07), w.reload * 700);
     }
     function switchWeapon(i) {
+        // Rakam tuşları SADECE sahip olunan silahlara geçer
+        // (1 = market silahın, 2 = tabanca, 3 = bıçak, 4-5 = diğer market silahları)
         if (!self.alive || self.cur === i || i < 0 || i >= FPS_WEAPONS.length) return;
+        if (!self.own[i]) { toast("🔒 Bu silaha sahip değilsin — [B] ile hazırlık süresinde satın al"); return; }
         self.cur = i; self.reloadEnd = 0; self.nextShot = performance.now() + 280;
-        buildGunModel(FPS_WEAPONS[i]);
+        if (!self.own[i]) self.cur = self.own[1] ? 1 : 0; // asla sahip olunmayan silah kalmasın
+        buildGunModel(FPS_WEAPONS[self.cur]);
         vmDrop = 0.28;
         tone(500, 0.05, "square", 0.06);
+        renderSlots();
+    }
+    // Slot HUD'u: 1 = market silahı (yoksa boş), 2 = tabanca, 3 = bıçak, 4-5 = sahip olunan diğer market silahları
+    let lastSlotsHtml = "";
+    function renderSlots() {
+        const el = $("fSlots");
+        if (!el) return;
+        const mk = (i, n) => {
+            const w = FPS_WEAPONS[i];
+            return `<div class="fSlot ${self.cur === i ? "sel" : ""}"><b>${n}</b><small>${w.name}</small></div>`;
+        };
+        let html = self.mk >= 0 ? mk(self.mk, "1") : `<div class="fSlot"><b>1</b><small>satın al…</small></div>`;
+        html += mk(1, "2") + mk(5, "3");
+        if (html !== lastSlotsHtml) { lastSlotsHtml = html; el.innerHTML = html; }
+    }
+    // Silah inceleme animasyonu (F): silahı kaldırıp çevirir
+    const INSPECT_DUR = 2.2;
+    function startInspect() {
+        if (!self.alive || self.inspect > 0 || FPS_WEAPONS[self.cur].melee) return;
+        self.inspect = 0.0001;
+        tone(700, 0.05, "square", 0.04);
     }
     let vmDrop = 0;
     function currentSpread() {
@@ -3923,18 +4069,51 @@ function startFps(net) {
         muzzle.material.opacity = Math.max(0, muzzle.material.opacity - dt * 22);
         muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 40);
         if (now - self.lastShotAt > 140) self.burst = Math.max(0, self.burst - dt * 12);
-        const canFire = self.alive && (locked || IS_MOBILE) && !inMenu && S.phase === "live" && !self.reloadEnd && fireHeld && now >= self.nextShot;
+        // Silah inceleme animasyonu ilerlemesi
+        if (self.inspect > 0) {
+            self.inspect += dt;
+            if (self.inspect >= INSPECT_DUR) self.inspect = 0;
+        }
+        const canFire = self.alive && (locked || IS_MOBILE) && !inMenu && S.phase === "live" && !self.reloadEnd && fireHeld && now >= self.nextShot && self.own[self.cur];
         if (canFire && (!w.auto ? semiReady : true)) {
-            if (self.ammo[self.cur] <= 0) { startReload(); return; }
+            if (!w.melee && self.ammo[self.cur] <= 0) { startReload(); return; }
             semiReady = false;
-            self.ammo[self.cur]--;
+            if (!w.melee) self.ammo[self.cur]--;
             self.nextShot = now + w.rate;
             self.lastShotAt = now;
             self.burst = Math.min(10, self.burst + 1);
             self.recP = Math.min(0.3, self.recP + w.recoil);
-            self.kick = 1;
-            fireShot(w, self.cur);
-            if (self.ammo[self.cur] <= 0) startReload();
+            self.kick = w.melee ? 1.6 : 1;
+            if (w.melee) {
+                // Bıçak: kısa menzilli geniş yay (hız/susturucu yok)
+                tone(240, 0.06, "sine", 0.05, 90);
+                const maxT = 2.1, hitPts = [];
+                camera.getWorldPosition(tmpA);
+                const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                const wallT = rayWall(tmpA.x, tmpA.y, tmpA.z, fwd.x, fwd.y, fwd.z, maxT);
+                let bestT = wallT, bestId = null;
+                for (const id in others) {
+                    const o = others[id];
+                    if (o.team === myTeam || !o.alive || !o.got) continue;
+                    const cx = o.x - tmpA.x, cy = (o.py + 0.9) - tmpA.y, cz = o.z - tmpA.z;
+                    const t = cx * fwd.x + cy * fwd.y + cz * fwd.z;
+                    if (t < 0.1 || t >= bestT + 0.55) continue;
+                    const dx = o.x - (tmpA.x + fwd.x * t), dz = o.z - (tmpA.z + fwd.z * t);
+                    if (dx * dx + dz * dz > 0.9 * 0.9) continue;
+                    if (t < bestT + 0.55) { bestT = Math.min(bestT, t); bestId = id; }
+                }
+                if (bestId) {
+                    net.send({ k: "dmg", amt: w.dmg, head: false }, bestId);
+                    hitMarker(false);
+                    spawnSparks(new THREE.Vector3(tmpA.x + fwd.x * bestT, tmpA.y + fwd.y * bestT, tmpA.z + fwd.z * bestT), 4, 0xd43a3a);
+                } else if (bestT < maxT - 0.01) {
+                    spawnSparks(new THREE.Vector3(tmpA.x + fwd.x * bestT, tmpA.y + fwd.y * bestT, tmpA.z + fwd.z * bestT), 3, 0xcccccc);
+                    noiseBurst(0.05, 0.08, 900);
+                }
+            } else {
+                fireShot(w, self.cur);
+                if (self.ammo[self.cur] <= 0) startReload();
+            }
         }
     }
 
@@ -4016,7 +4195,7 @@ function startFps(net) {
         }
         const eyeT = self.crouch ? 1.02 : 1.62;
         self.eyeCur += (eyeT - self.eyeCur) * Math.min(1, dt * 10);
-        const adsT = self.ads && self.alive ? 1 : 0;
+        const adsT = self.ads && self.alive && !FPS_WEAPONS[self.cur].melee ? 1 : 0;
         self.adsCur += (adsT - self.adsCur) * Math.min(1, dt * 10);
     }
 
@@ -4080,7 +4259,16 @@ function startFps(net) {
                 -0.23 + adsY + Math.abs(Math.cos(self.bobT * 0.5)) * 0.012 * self.bobAmp - rl * 0.22 - vmDrop,
                 -0.48 + adsZ + self.kick * 0.05
             );
-            vm.rotation.set(rl * 0.7 + self.kick * 0.06, self.adsCur * 0.06, 0);
+            // İnceleme (F): silahı kaldırıp yavaşça çevirerek göster
+            let ix = 0, iy = 0, iz = 0;
+            if (self.inspect > 0) {
+                const t = self.inspect / INSPECT_DUR; // 0→1
+                const ease = Math.sin(t * Math.PI); // 0→1→0 zarif giriş/çıkış
+                ix = ease * -0.09 + ease * ease * 0.045;
+                iy = ease * 0.17 + ease * ease * 0.015;
+                iz = ease * 0.24 - ease * ease * 0.07;
+            }
+            vm.rotation.set(rl * 0.7 + self.kick * 0.06 + ix, self.adsCur * 0.06 + iy, iz);
         }
         // ADS fov
         const w = FPS_WEAPONS[self.cur];
@@ -4124,6 +4312,8 @@ function startFps(net) {
         // Dürbün açıkken silah modelini tamamen gizle ki lensin altını kapatmasın!
         if (vm) vm.visible = !scopingNow;
         if (vmGun) vmGun.visible = !scopingNow;
+        // Eski raundlardan kalan nişangâh overlay'ini temizle (AWP silah değişiminde ekranda kalıyordu)
+        if (!scopingNow && specScope && specScope.style.display !== "none") specScope.style.display = "none";
     }
     function specTarget() {
         const cand = order.filter((id) => id !== myId && others[id] && others[id].got && others[id].alive);
@@ -4154,7 +4344,7 @@ function startFps(net) {
         bar.style.background = ratio > 0.5 ? "#22c55e" : ratio > 0.25 ? "#f59e0b" : "#ef4444";
         const w = FPS_WEAPONS[self.cur];
         setText("fAmmoText", self.reloadEnd ? "…" : String(self.ammo[self.cur]));
-        setText("fWeaponText", w.name + (self.reloadEnd ? " • şarjör değişiyor" : "") + "  [1-5 | B]");
+        setText("fWeaponText", w.name + (self.reloadEnd ? " • şarjör değişiyor" : "") + "  [1-3 | B]");
 
         let big = "", sub = "", col = "#fff";
         if (S.phase === "vote") { big = "HARİTA OYLAMASI"; sub = "Haritayı seç!"; col = "#38bdf8"; }
@@ -4306,7 +4496,7 @@ function startFps(net) {
             if (wMenu) { wMenu.remove(); wMenu = null; }
             if (specScope) { specScope.remove(); specScope = null; }
             delete window.fpsCastVote; delete window.fpsPickWeapon;
-            delete window.fpsSet; delete window.fpsPauseNav;
+            delete window.fpsSet; delete window.fpsSetChar; delete window.fpsPauseNav;
             if (pMenu) { pMenu.remove(); pMenu = null; }
             inMenu = false;
             $("fpsGame").classList.add("hidden");
@@ -4356,6 +4546,7 @@ function appendChat(from, text, team) {
 // Sesli İletişim Değişkenleri (WebRTC P2P)
 let localAudioStream = null;
 const peers = {};
+window.__pcTalking = {}; // peerId -> bool (uzak konuşma göstergesi)
 window.pcVoiceRemote = window.pcVoiceRemote || {};
 function voiceIAmInitiator(peerId) { return String(myId) < String(peerId); }
 const pendingAudios = [];
@@ -4389,6 +4580,55 @@ function pcSetVoiceVolume(audio, peerId) {
     audio.volume += (target - audio.volume) * 0.32;
 }
 
+// "Konuşuyor" göstergeleri: oyuncu listesinde isim yanında yeşil nokta
+function updateTalkingBadges() {
+    const list = $("playerList");
+    if (!list) return;
+    list.querySelectorAll("li[data-pid]").forEach((li) => {
+        const dot = li.querySelector(".talkDot");
+        if (!dot) return;
+        const pid = li.dataset.pid;
+        const on = pid === myId ? !!window.__iAmTalking : !!window.__pcTalking[pid];
+        dot.classList.toggle("on", !!on);
+    });
+}
+window.updateTalkingBadges = updateTalkingBadges;
+micLevelCb = (talking) => {
+    const b = $("micBtn");
+    if (b) b.classList.toggle("talking", !!talking);
+    window.__iAmTalking = talking;
+    updateTalkingBadges();
+};
+
+// ---- Mikrofon konuşma göstergesi: yerel mikrofon ses seviyesini ölç ve ----
+// kendi mic butonunda + oyuncu listesinde canlı "konuşuyor" LED'i göster
+let micLevelCb = null;
+function startMicLevelMonitor(stream) {
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const ac = new AC();
+        const src = ac.createMediaStreamSource(stream);
+        const analyser = ac.createAnalyser();
+        analyser.fftSize = 512;
+        src.connect(analyser);
+        const buf = new Uint8Array(analyser.fftSize);
+        let lastTalk = false;
+        (function loop() {
+            if (!localAudioStream || localAudioStream.getAudioTracks().every((t) => !t.enabled)) {
+                if (lastTalk) { lastTalk = false; if (micLevelCb) micLevelCb(false); }
+                requestAnimationFrame(loop); return;
+            }
+            analyser.getByteTimeDomainData(buf);
+            let sum = 0;
+            for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+            const rms = Math.sqrt(sum / buf.length);
+            const talking = rms > 0.045;
+            if (talking !== lastTalk) { lastTalk = talking; if (micLevelCb) micLevelCb(talking); }
+            requestAnimationFrame(loop);
+        })();
+    } catch (e) {}
+}
+
 if ($("micBtn")) {
     $("micBtn").onclick = async () => {
         const btn = $("micBtn");
@@ -4406,6 +4646,7 @@ if ($("micBtn")) {
                 btn.classList.add("active");
                 btn.classList.remove("muted");
                 toast("🎤 Mikrofon açıldı!");
+                startMicLevelMonitor(localAudioStream);
                 
                 // Mevcut tüm peer bağlantılarına audio track ekle ve renegotiate et
                 const track = localAudioStream.getAudioTracks()[0];
@@ -4475,6 +4716,35 @@ function createPeer(peerId, isInitiator) {
         audio.srcObject = e.streams[0];
         tryPlayAudio(audio);
         if (!audio._pcVoiceTimer) audio._pcVoiceTimer = setInterval(() => pcSetVoiceVolume(audio, peerId), 150);
+        // Uzak mikrofon seviyesini ölç → konuşma göstergesi (PC'de canlı LED)
+        if (!audio._lvlAnalyser) {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                const ac2 = new AC();
+                const src2 = ac2.createMediaStreamSource(e.streams[0]);
+                const an2 = ac2.createAnalyser();
+                an2.fftSize = 512;
+                src2.connect(an2);
+                const buf2 = new Uint8Array(an2.fftSize);
+                audio._lvlAnalyser = { an: an2, buf: buf2, talk: false };
+                (function lvlLoop() {
+                    const st = audio._lvlAnalyser;
+                    if (!st || !document.getElementById("audio_" + peerId)) return;
+                    st.an.getByteTimeDomainData(st.buf);
+                    let s2 = 0;
+                    for (let i = 0; i < st.buf.length; i++) { const v = (st.buf[i] - 128) / 128; s2 += v * v; }
+                    const talk2 = Math.sqrt(s2 / st.buf.length) > 0.045;
+                    if (talk2 !== st.talk) {
+                        st.talk = talk2;
+                        window.__pcTalking[peerId] = talk2;
+                        const b = document.getElementById("micBtn");
+                        if (b && b.classList.contains("talking")) b.classList.remove("talking");
+                        updateTalkingBadges();
+                    }
+                    requestAnimationFrame(lvlLoop);
+                })();
+            } catch (err) {}
+        }
     };
 
     if (isInitiator) {
