@@ -3387,6 +3387,7 @@ function startFps(net) {
         x: 0, y: 0, z: 0, yaw: 0, pitch: 0, recP: 0, vx: 0, vz: 0, vy: 0,
         py: 0, grounded: true, crouch: false, eyeCur: 1.62,
         hp: MAX_HP, alive: true, cur: 0, ammo: FPS_WEAPONS.map((w) => w.mag),
+        mk: -1, // slot 1'e alınan market silahının indeksi (-1 = alınmadı)
         own: [true, true, true, false, false, true], // 0-4: silah slotları, 5: bıçak (sabit)
         inspect: 0, inspectQueued: false,
         reloadEnd: 0, nextShot: 0, lastShotAt: 0, burst: 0, moving: false, sprint: false,
@@ -4593,16 +4594,17 @@ function updateTalkingBadges() {
     });
 }
 window.updateTalkingBadges = updateTalkingBadges;
+
+// ---- Mikrofon konuşma göstergesi: yerel mikrofon ses seviyesini ölç ve ----
+// kendi mic butonunda + oyuncu listesinde canlı "konuşuyor" LED'i göster
+let micLevelCb = null;
+// İlk atama BURADA yapılır (deklarasyondan sonra — TDZ hatasına karşı)
 micLevelCb = (talking) => {
     const b = $("micBtn");
     if (b) b.classList.toggle("talking", !!talking);
     window.__iAmTalking = talking;
     updateTalkingBadges();
 };
-
-// ---- Mikrofon konuşma göstergesi: yerel mikrofon ses seviyesini ölç ve ----
-// kendi mic butonunda + oyuncu listesinde canlı "konuşuyor" LED'i göster
-let micLevelCb = null;
 function startMicLevelMonitor(stream) {
     try {
         const AC = window.AudioContext || window.webkitAudioContext;
