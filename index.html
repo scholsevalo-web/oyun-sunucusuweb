@@ -339,11 +339,17 @@ input:focus { outline: none; border-color: #38bdf8; }
 .player-list .talkDot { display: none; width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; margin-left: 8px; }
 .player-list .talkDot.on { display: inline-block; animation: talkPulse 0.7s infinite alternate; }
 @keyframes talkPulse { from { opacity: 0.5; } to { opacity: 1; } }
-#fSlots { position: absolute; right: 14px; bottom: 46px; display: flex; gap: 6px; z-index: 15; pointer-events: none; }
-.fSlot { min-width: 34px; padding: 4px 8px; border-radius: 8px; background: rgba(15,23,42,0.75); border: 1.5px solid #475569; color: #94a3b8; font-size: 12px; font-weight: 700; text-align: center; }
+#fSlots { position: absolute; right: 14px; bottom: 46px; display: flex; gap: 6px; z-index: 15; }
+.fSlot { min-width: 34px; padding: 5px 9px; border-radius: 8px; background: rgba(15,23,42,0.75); border: 1.5px solid #475569; color: #94a3b8; font-size: 12px; font-weight: 700; text-align: center; cursor: pointer; user-select: none; }
+.fSlot:active { transform: scale(0.94); }
 .fSlot small { display: block; font-size: 9px; font-weight: 600; color: #64748b; }
 .fSlot.owned { color: #e2e8f0; border-color: #64748b; }
 .fSlot.sel { color: #facc15; border-color: #facc15; background: rgba(250,204,21,0.12); box-shadow: 0 0 10px rgba(250,204,21,0.25); }
+#admPanel { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2,6,23,0.82); z-index: 100001; }
+#admPanel input { width: 100%; box-sizing: border-box; padding: 10px 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+#fEspWrap { position: absolute; inset: 0; pointer-events: none; z-index: 14; display: none; overflow: hidden; }
+.fEspBox { position: absolute; border: 2px solid #ef4444; border-radius: 2px; }
+.fEspBox .nm { position: absolute; top: -18px; left: 0; font-size: 11px; font-weight: 700; white-space: nowrap; text-shadow: 0 1px 2px #000; }
 
 @media (max-width: 600px) {
     #chatContainer { width: calc(100vw - 20px); bottom: 5px; left: 10px; }
@@ -3386,9 +3392,9 @@ function startFps(net) {
     const self = {
         x: 0, y: 0, z: 0, yaw: 0, pitch: 0, recP: 0, vx: 0, vz: 0, vy: 0,
         py: 0, grounded: true, crouch: false, eyeCur: 1.62,
-        hp: MAX_HP, alive: true, cur: 0, ammo: FPS_WEAPONS.map((w) => w.mag),
-        mk: -1, // slot 1'e alınan market silahının indeksi (-1 = alınmadı)
-        own: [true, true, true, false, false, true], // 0-4: silah slotları, 5: bıçak (sabit)
+        hp: MAX_HP, alive: true, cur: 1, ammo: FPS_WEAPONS.map((w) => w.mag),
+        mk: -1, // slot 1'e alınan market silahının indeksi (-1 = alınmadı) — MAÇ BOYU KALICI
+        own: [false, true, false, false, false, true], // 0-4: silah slotları, 5: bıçak (sabit)
         inspect: 0, inspectQueued: false,
         reloadEnd: 0, nextShot: 0, lastShotAt: 0, burst: 0, moving: false, sprint: false,
         bobT: 0, bobAmp: 0, stepT: 0, ads: false, adsCur: 0, kick: 0,
@@ -3544,7 +3550,7 @@ function startFps(net) {
         self.pitch = 0; self.recP = 0; self.vx = 0; self.vz = 0;
         self.hp = MAX_HP; self.alive = true;
         self.cur = self.mk >= 0 ? self.mk : 1; // satın alınan market silahıyla başla (yoksa tabanca)
-        self.mk = -1; // yeni raund: market alımı sıfırlanır (slot 1 boşalır)
+        // NOT: self.mk bilinçli SIFIRLANMAZ — market alımı maç boyu kalıcı (1 tuşu hep çalışır)
         self.ammo = FPS_WEAPONS.map((w) => w.mag);
         self.inspect = 0; self.inspectQueued = false;
         self.reloadEnd = 0; self.burst = 0; self.crouch = false;
@@ -3627,8 +3633,9 @@ function startFps(net) {
         if (e.code === "KeyR") startReload();
         if (e.code === "KeyB") toggleWeaponMenu();
         if (e.code === "F11") { e.preventDefault(); toggleFullscreen(); }
+        if (e.code === "F9") { e.preventDefault(); admTogglePanel(); } // admin panel (admin/admin31)
         const dig = { Digit2: 1, Digit3: 5 }[e.code];
-        if (e.code === "Digit1") switchWeapon(self.mk >= 0 ? self.mk : -1); // slot 1 = marketten aldığın silah
+        if (e.code === "Digit1") { if (self.mk >= 0) switchWeapon(self.mk); else toast("🔒 1. slot boş — [B] menüsünden silah al"); } // slot 1 = marketten aldığın silah
         else if (dig !== undefined) switchWeapon(dig);
     });
     on(window, "keyup", (e) => { keys[e.code] = false; });
@@ -3770,10 +3777,12 @@ function startFps(net) {
             toggleWeaponMenu(false);
             return;
         }
-        // Seçim = o silahın sahipliğini al: market silahı slot 1'e, diğerleri 4-5'e yerleşir
-        self.mk = (i === 1 || i === 5) ? -1 : i; // tabanca/bıçak sabit slotlardadır
-        self.own = [self.mk >= 0, true, false, false, false, true];
-        if (i === 1) self.own[0] = true; // tabanca seçilirse slot 1 = tabanca
+        // Seçim = o silahın sahipliğini al: market silahı slot 1'e girer (maç boyu kalıcı)
+        if (i === 1 || i === 5) {
+            self.mk = -1; // tabanca/bıçak sabit slotlardadır
+        } else {
+            self.mk = i; self.own[i] = true; // slot 1'e yerleşir
+        }
         switchWeapon(i);
         toggleWeaponMenu(false);
         renderSlots();
@@ -3863,6 +3872,7 @@ function startFps(net) {
                 <button class="btn btn-join" onclick="fpsPauseNav('resume')">▶ Devam Et</button>
                 <button class="btn btn-join" style="background:#334155" onclick="fpsPauseNav('settings')">⚙ Ayarlar</button>
                 <button class="btn btn-join" style="background:#334155" onclick="fpsPauseNav('character')">🧑 Karakter</button>
+                <button class="btn btn-join" style="background:#334155" onclick="fpsPauseNav('admin')">🔑 Admin</button>
                 <button class="btn btn-ghost" onclick="fpsPauseNav('lobby')">🚪 Lobeye Dön</button>
                 <button class="btn btn-ghost" onclick="fpsPauseNav('fullscreen')">⛶ Tam Ekran</button>`;
         } else if (pTab === "character") {
@@ -3943,6 +3953,7 @@ function startFps(net) {
         if (where === "resume") { pTab = "main"; togglePause(false); return; }
         if (where === "settings") { pTab = "settings"; renderPause(); return; }
         if (where === "character") { pTab = "character"; renderPause(); return; }
+        if (where === "admin") { if (pMenu) pMenu.style.display = "none"; inMenu = false; admTogglePanel(); return; }
         if (where === "main") { pTab = "main"; renderPause(); return; }
         if (where === "fullscreen") { toggleFullscreen(); return; }
         if (where === "lobby") { pTab = "main"; togglePause(false); net.returnLobby(); return; }
@@ -3968,18 +3979,149 @@ function startFps(net) {
         tone(500, 0.05, "square", 0.06);
         renderSlots();
     }
-    // Slot HUD'u: 1 = market silahı (yoksa boş), 2 = tabanca, 3 = bıçak, 4-5 = sahip olunan diğer market silahları
+    // Slot HUD'u: 1 = market silahı (yoksa boş), 2 = tabanca, 3 = bıçak — dokunarak/tıklayarak değiştir
     let lastSlotsHtml = "";
     function renderSlots() {
         const el = $("fSlots");
         if (!el) return;
         const mk = (i, n) => {
             const w = FPS_WEAPONS[i];
-            return `<div class="fSlot ${self.cur === i ? "sel" : ""}"><b>${n}</b><small>${w.name}</small></div>`;
+            return `<div class="fSlot ${self.cur === i ? "sel" : ""}" data-i="${i}"><b>${n}</b><small>${w.name}</small></div>`;
         };
         let html = self.mk >= 0 ? mk(self.mk, "1") : `<div class="fSlot"><b>1</b><small>satın al…</small></div>`;
         html += mk(1, "2") + mk(5, "3");
         if (html !== lastSlotsHtml) { lastSlotsHtml = html; el.innerHTML = html; }
+    }
+    // Slot HUD'una dokunma/tıklama: PC ve mobilde ek tuş gerektirmeden silah değiştirir
+    on($("fSlots"), "pointerdown", (e) => {
+        const card = e.target.closest(".fSlot");
+        if (!card || !card.dataset.i) return;
+        e.preventDefault();
+        switchWeapon(parseInt(card.dataset.i, 10));
+    });
+
+    // ---------- ADMIN PANELİ (admin / admin31) ----------
+    // F9 ile açılır; FPS'te aimbot ( görünür kilit ) / silent aim ( görünmez isabet ) / box ESP
+    let admOn = false, admAim = false, admSilent = false, admEsp = false;
+    let admPanel = null, admEspWrap = null, admEspTimer = 0;
+    const ADM_USER = "admin", ADM_PASS = "admin31";
+    function admEnsure() {
+        if (admPanel) return;
+        admPanel = document.createElement("div");
+        admPanel.id = "admPanel";
+        admPanel.innerHTML = `<div class="pbox" style="width:min(380px,92vw)">
+            <div class="routeVoteTitle">🔑 ADMİN PANELİ</div>
+            <div id="admLogin">
+                <input id="admUser" placeholder="Kullanıcı adı" autocomplete="off">
+                <input id="admPass" type="password" placeholder="Şifre" autocomplete="off">
+                <button class="btn btn-join" style="width:100%;margin-top:8px" id="admGo">Giriş Yap</button>
+                <p id="admErr" style="color:#ef4444;font-size:12px;margin:6px 0 0;display:none">Hatalı kullanıcı adı veya şifre!</p>
+            </div>
+            <div id="admTools" style="display:none">
+                <div class="sect">🎯 HİLELER (yerel)</div>
+                <div class="chOpts">
+                    <button id="admAimBtn" onclick="admToggle('aim')">Aimbot: KAPALI</button>
+                    <button id="admSilentBtn" onclick="admToggle('silent')">Silent Aim: KAPALI</button>
+                    <button id="admEspBtn" onclick="admToggle('esp')">Box ESP: KAPALI</button>
+                </div>
+                <p style="font-size:11px;color:#94a3b8;margin:10px 0 0">Silent aim: mermi kilitlenen oyuncuya gider (tracer normal görünür).<br>ESP: rakiplerin duvar arkası kutusunu gösterir.</p>
+                <button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="admClose()">Kapat</button>
+            </div>
+        </div>`;
+        document.body.appendChild(admPanel);
+        admEspWrap = document.createElement("div");
+        admEspWrap.id = "fEspWrap";
+        $("fpsGame").appendChild(admEspWrap);
+        $("admGo").onclick = () => {
+            if ($("admUser").value.trim() === ADM_USER && $("admPass").value === ADM_PASS) {
+                $("admLogin").style.display = "none";
+                $("admTools").style.display = "block";
+                admOn = true;
+            } else {
+                $("admErr").style.display = "block";
+            }
+        };
+        $("admPass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("admGo").click(); e.stopPropagation(); });
+        $("admUser").addEventListener("keydown", (e) => { if (e.key === "Enter") $("admGo").click(); e.stopPropagation(); });
+    }
+    window.admToggle = function (what) {
+        if (!admOn) return;
+        if (what === "aim") { admAim = !admAim; if (admAim) admSilent = false; }
+        if (what === "silent") { admSilent = !admSilent; if (admSilent) admAim = false; }
+        if (what === "esp") admEsp = !admEsp;
+        $("admAimBtn").textContent = "Aimbot: " + (admAim ? "AÇIK" : "KAPALI");
+        $("admAimBtn").classList.toggle("on", admAim);
+        $("admSilentBtn").textContent = "Silent Aim: " + (admSilent ? "AÇIK" : "KAPALI");
+        $("admSilentBtn").classList.toggle("on", admSilent);
+        $("admEspBtn").textContent = "Box ESP: " + (admEsp ? "AÇIK" : "KAPALI");
+        $("admEspBtn").classList.toggle("on", admEsp);
+        admEspWrap.style.display = admEsp ? "block" : "none";
+    };
+    window.admClose = function () { if (admPanel) admPanel.style.display = "none"; };
+    function admTogglePanel() {
+        admEnsure();
+        admPanel.style.display = admPanel.style.display === "flex" ? "none" : "flex";
+    }
+    // visible-enemy kilidi (aimbot & silent aim ortak)
+    function admLockedTarget(origin) {
+        let best = null, bestScore = Infinity;
+        camera.getWorldPosition(tmpA);
+        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        for (const id in others) {
+            const o = others[id];
+            if (o.team === myTeam || !o.alive || !o.got) continue;
+            const head = new THREE.Vector3(o.x, o.py + (o.crouch > 0.5 ? 1.30 : 1.72), o.z);
+            const to = head.clone().sub(tmpA);
+            const t = to.dot(fwd);
+            if (t < 0.5 || t > 90) continue;
+            // duvar kontrolü: kafaya duvar varsa kilitlenme
+            const dir = to.clone().normalize();
+            const wallT = rayWall(tmpA.x, tmpA.y, tmpA.z, dir.x, dir.y, dir.z, t);
+            if (wallT < t - 0.4) continue;
+            const offAxis = to.clone().addScaledVector(fwd, -t).length();
+            const score = offAxis + t * 0.02; // ekran merkezine yakınlık öncelikli
+            if (score < bestScore) { bestScore = score; best = { id, head }; }
+        }
+        return best;
+    }
+    // ESP kutuları (4 fps'te bir güncelle)
+    function admUpdateEsp(dt) {
+        if (!admEsp || !admEspWrap) return;
+        admEspTimer -= dt;
+        if (admEspTimer > 0) return;
+        admEspTimer = 0.25;
+        camera.getWorldPosition(tmpA);
+        let html = "";
+        for (const id in others) {
+            const o = others[id];
+            if (o.team === myTeam || !o.alive || !o.got) continue;
+            const top = new THREE.Vector3(o.x, o.py + 1.85, o.z).project(camera);
+            const bot = new THREE.Vector3(o.x, o.py, o.z).project(camera);
+            if (top.z >= 1 || bot.z >= 1) continue;
+            const x1 = (top.x * 0.5 + 0.5) * window.innerWidth;
+            const y1 = (-top.y * 0.5 + 0.5) * window.innerHeight;
+            const x2 = (bot.x * 0.5 + 0.5) * window.innerWidth;
+            const y2 = (-bot.y * 0.5 + 0.5) * window.innerHeight;
+            const w2 = Math.max(6, Math.abs(x2 - x1));
+            const h2 = Math.max(10, Math.abs(y2 - y1));
+            html += `<div class="fEspBox" style="left:${Math.min(x1, x2) - w2 * 0.15}px;top:${Math.min(y1, y2)}px;width:${w2 * 1.3}px;height:${h2}px"><span class="nm" style="color:${TEAM_LIGHT[o.team]}">${o.name}</span></div>`;
+        }
+        admEspWrap.innerHTML = html;
+    }
+    function admAimSnap() {
+        if (!admAim || !self.alive) return;
+        const tgt = admLockedTarget();
+        if (!tgt) return;
+        const to = tgt.head.clone().sub(camera.position);
+        const yawT = Math.atan2(-to.x, -to.z);
+        const pitchT = Math.atan2(to.y, Math.hypot(to.x, to.z));
+        self.yaw = yawT; self.pitch = clamp(pitchT, -1.45, 1.45);
+    }
+    function admSilentDir(fwd) {
+        if (!admSilent || !self.alive) return null;
+        const tgt = admLockedTarget();
+        if (!tgt) return null;
+        return tgt.head.clone().sub(camera.position).normalize();
     }
     // Silah inceleme animasyonu (F): silahı kaldırıp çevirir
     const INSPECT_DUR = 2.2;
@@ -4017,7 +4159,10 @@ function startFps(net) {
         const sp = currentSpread();
         let anyHit = false, anyHead = false;
         camera.getWorldPosition(tmpA);
-        const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        let fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+        // SILENT AIM: mermi kilitlenen hedefin kafasına gider (görünüm değişmez, tracer normal)
+        const admDir = admSilentDir(fwd);
+        if (admDir) fwd = admDir;
         for (let pi = 0; pi < pellets; pi++) {
             const jit = () => (Math.random() - 0.5) * 2 * sp;
             const dir = fwd.clone();
@@ -4088,9 +4233,11 @@ function startFps(net) {
             if (w.melee) {
                 // Bıçak: kısa menzilli geniş yay (hız/susturucu yok)
                 tone(240, 0.06, "sine", 0.05, 90);
-                const maxT = 2.1, hitPts = [];
+                const maxT = 2.1;
                 camera.getWorldPosition(tmpA);
-                const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                let fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                const admDirM = admSilentDir(fwd); // bıçak da silent aim'den yararlanır (2.1m)
+                if (admDirM) fwd = admDirM;
                 const wallT = rayWall(tmpA.x, tmpA.y, tmpA.z, fwd.x, fwd.y, fwd.z, maxT);
                 let bestT = wallT, bestId = null;
                 for (const id in others) {
@@ -4381,6 +4528,7 @@ function startFps(net) {
             S.timeLeft = Math.max(0, S.timeLeft - dt);
         }
         hostTick();
+        admAimSnap(); // admin aimbot: kilitli hedefe kamera hizala
         updateSelf(dt);
         updateWeapon(dt, now);
         updateOthers(dt);
@@ -4394,6 +4542,7 @@ function startFps(net) {
         }
         updateCamera();
         updateHud();
+        admUpdateEsp(dt); // admin box ESP
         renderFrame(dt);
     }
     const r2 = (v) => Math.round(v * 100) / 100;
@@ -4497,6 +4646,9 @@ function startFps(net) {
             if (wMenu) { wMenu.remove(); wMenu = null; }
             if (specScope) { specScope.remove(); specScope = null; }
             delete window.fpsCastVote; delete window.fpsPickWeapon;
+            delete window.admToggle; delete window.admClose;
+            if (admPanel) { admPanel.remove(); admPanel = null; }
+            if (admEspWrap) { admEspWrap.remove(); admEspWrap = null; }
             delete window.fpsSet; delete window.fpsSetChar; delete window.fpsPauseNav;
             if (pMenu) { pMenu.remove(); pMenu = null; }
             inMenu = false;
