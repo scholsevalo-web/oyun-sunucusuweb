@@ -347,9 +347,7 @@ input:focus { outline: none; border-color: #38bdf8; }
 .fSlot.sel { color: #facc15; border-color: #facc15; background: rgba(250,204,21,0.12); box-shadow: 0 0 10px rgba(250,204,21,0.25); }
 #admPanel { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(2,6,23,0.82); z-index: 100001; }
 #admPanel input { width: 100%; box-sizing: border-box; padding: 10px 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 14px; }
-#fEspWrap { position: absolute; inset: 0; pointer-events: none; z-index: 14; display: none; overflow: hidden; }
-.fEspBox { position: absolute; border: 2px solid #ef4444; border-radius: 2px; }
-.fEspBox .nm { position: absolute; top: -18px; left: 0; font-size: 11px; font-weight: 700; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+#fEspCvs { position: absolute; inset: 0; pointer-events: none; z-index: 14; display: none; }
 
 @media (max-width: 600px) {
     #chatContainer { width: calc(100vw - 20px); bottom: 5px; left: 10px; }
@@ -4003,7 +4001,7 @@ function startFps(net) {
     // ---------- ADMIN PANELİ (admin / admin31) ----------
     // F9 ile açılır; FPS'te aimbot ( görünür kilit ) / silent aim ( görünmez isabet ) / box ESP
     let admOn = false, admAim = false, admSilent = false, admEsp = false;
-    let admPanel = null, admEspWrap = null, admEspTimer = 0;
+    let admPanel = null, admEspCvs = null, admEspTimer = 0;
     const ADM_USER = "admin", ADM_PASS = "admin31";
     function admEnsure() {
         if (admPanel) return;
@@ -4029,9 +4027,9 @@ function startFps(net) {
             </div>
         </div>`;
         document.body.appendChild(admPanel);
-        admEspWrap = document.createElement("div");
-        admEspWrap.id = "fEspWrap";
-        $("fpsGame").appendChild(admEspWrap);
+        admEspCvs = document.createElement("canvas");
+        admEspCvs.id = "fEspCvs";
+        $("fpsGame").appendChild(admEspCvs);
         $("admGo").onclick = () => {
             if ($("admUser").value.trim() === ADM_USER && $("admPass").value === ADM_PASS) {
                 $("admLogin").style.display = "none";
@@ -4055,7 +4053,7 @@ function startFps(net) {
         $("admSilentBtn").classList.toggle("on", admSilent);
         $("admEspBtn").textContent = "Box ESP: " + (admEsp ? "AÇIK" : "KAPALI");
         $("admEspBtn").classList.toggle("on", admEsp);
-        admEspWrap.style.display = admEsp ? "block" : "none";
+        admEspCvs.style.display = admEsp ? "block" : "none";
     };
     window.admClose = function () { if (admPanel) admPanel.style.display = "none"; };
     function admTogglePanel() {
@@ -4084,29 +4082,39 @@ function startFps(net) {
         }
         return best;
     }
-    // ESP kutuları (4 fps'te bir güncelle)
+    // ESP kutuları — canvas'a çizilir (DOM div'lerinden çok daha hafif, kasmaz)
     function admUpdateEsp(dt) {
-        if (!admEsp || !admEspWrap) return;
-        admEspTimer -= dt;
-        if (admEspTimer > 0) return;
-        admEspTimer = 0.25;
-        camera.getWorldPosition(tmpA);
-        let html = "";
+        if (!admEsp) return;
+        if (!admEspCvs) return;
+        const w = admEspCvs.clientWidth, h = admEspCvs.clientHeight;
+        if (admEspCvs.width !== w || admEspCvs.height !== h) { admEspCvs.width = w; admEspCvs.height = h; }
+        const ctx = admEspCvs.getContext("2d");
+        ctx.clearRect(0, 0, w, h);
         for (const id in others) {
             const o = others[id];
             if (o.team === myTeam || !o.alive || !o.got) continue;
             const top = new THREE.Vector3(o.x, o.py + 1.85, o.z).project(camera);
             const bot = new THREE.Vector3(o.x, o.py, o.z).project(camera);
-            if (top.z >= 1 || bot.z >= 1) continue;
-            const x1 = (top.x * 0.5 + 0.5) * window.innerWidth;
-            const y1 = (-top.y * 0.5 + 0.5) * window.innerHeight;
-            const x2 = (bot.x * 0.5 + 0.5) * window.innerWidth;
-            const y2 = (-bot.y * 0.5 + 0.5) * window.innerHeight;
-            const w2 = Math.max(6, Math.abs(x2 - x1));
-            const h2 = Math.max(10, Math.abs(y2 - y1));
-            html += `<div class="fEspBox" style="left:${Math.min(x1, x2) - w2 * 0.15}px;top:${Math.min(y1, y2)}px;width:${w2 * 1.3}px;height:${h2}px"><span class="nm" style="color:${TEAM_LIGHT[o.team]}">${o.name}</span></div>`;
+            if (top.z >= 1 || bot.z >= 1 || top.z < -1) continue;
+            const x1 = (top.x * 0.5 + 0.5) * w;
+            const y1 = (-top.y * 0.5 + 0.5) * h;
+            const x2 = (bot.x * 0.5 + 0.5) * w;
+            const y2 = (-bot.y * 0.5 + 0.5) * h;
+            const bw = Math.max(8, Math.abs(x2 - x1) * 1.25);
+            const bh = Math.max(12, Math.abs(y2 - y1));
+            const bx = Math.min(x1, x2) - bw * 0.125;
+            const by = Math.min(y1, y2);
+            ctx.strokeStyle = o.team === 0 ? "#60a5fa" : "#f87171";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(bx, by, bw, bh);
+            ctx.font = "bold 11px 'Segoe UI', sans-serif";
+            ctx.textAlign = "left";
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "rgba(0,0,0,0.9)";
+            ctx.strokeText(o.name, bx, by - 5);
+            ctx.fillStyle = TEAM_LIGHT[o.team] || "#fff";
+            ctx.fillText(o.name, bx, by - 5);
         }
-        admEspWrap.innerHTML = html;
     }
     function admAimSnap() {
         if (!admAim || !self.alive) return;
@@ -4648,7 +4656,7 @@ function startFps(net) {
             delete window.fpsCastVote; delete window.fpsPickWeapon;
             delete window.admToggle; delete window.admClose;
             if (admPanel) { admPanel.remove(); admPanel = null; }
-            if (admEspWrap) { admEspWrap.remove(); admEspWrap = null; }
+            if (admEspCvs) { admEspCvs.remove(); admEspCvs = null; }
             delete window.fpsSet; delete window.fpsSetChar; delete window.fpsPauseNav;
             if (pMenu) { pMenu.remove(); pMenu = null; }
             inMenu = false;
