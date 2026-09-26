@@ -4129,6 +4129,7 @@ function startFps(net) {
         if (!admSilent || !self.alive) return null;
         const tgt = admLockedTarget();
         if (!tgt) return null;
+        // TAM silent aim: hedefin o anki Gerçek kafa konumuna kilitle (görünüm bozulmaz)
         return tgt.head.clone().sub(camera.position).normalize();
     }
     // Silah inceleme animasyonu (F): silahı kaldırıp çevirir
@@ -4164,13 +4165,13 @@ function startFps(net) {
     const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3();
     function fireShot(w, wi) {
         const pellets = w.pellets || 1;
-        const sp = currentSpread();
+        let sp = currentSpread();
         let anyHit = false, anyHead = false;
         camera.getWorldPosition(tmpA);
         let fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-        // SILENT AIM: mermi kilitlenen hedefin kafasına gider (görünüm değişmez, tracer normal)
+        // SILENT AIM: görünüm değişmez, mermi(ler) kilitli hedefin kafasına TAM isabet eder
         const admDir = admSilentDir(fwd);
-        if (admDir) fwd = admDir;
+        if (admDir) { fwd = admDir; sp = 0; } // kilitli atışta saçılma yok — garantili kafa vuruşu
         for (let pi = 0; pi < pellets; pi++) {
             const jit = () => (Math.random() - 0.5) * 2 * sp;
             const dir = fwd.clone();
